@@ -43,22 +43,16 @@ bucket_name = "temp-mail-eml"
 # preview_id = "${SESSION_CACHE_PREVIEW_ID}"
 
 # 日志和监控配置
-[observability.logs]
-enabled = true
-# 生产环境可设置采样率
-# sampling_rate = 0.1
-
-[observability.metrics]
-enabled = true
+# 注意：observability配置在最新版本中可能已变更，建议使用默认配置
 
 # 开发服务器配置
 [dev]
 # 开发服务器端口
 port = 8787
-# 启用本地持久化
-persist = true
+# 启用本地持久化（如果支持）
+# persist = true
 # 本地持久化目录
-persist_to = "./.wrangler/state"
+# persist_to = "./.wrangler/state"
 # 启用热重载
 live_reload = true
 

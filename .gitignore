@@ -17,9 +17,6 @@ worker-configuration.d.ts
 .env.production.local
 .env.*
 
-# 构建备份文件
-.backup/
-
 # Logs
 logs
 *.log
