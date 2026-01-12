@@ -5,9 +5,23 @@
 ### 问题分析
 当前部署失败的主要原因是缺少必要的GitHub Secrets配置。
 
+### 项目部署架构说明
+
+本项目提供两种互补的部署方式：
+
+#### 1. **GitHub Actions 一键部署** (`ci.yml`)
+- **用途**：通过GitHub Actions自动部署到Cloudflare Workers
+- **触发条件**：push到main分支或手动触发
+- **需要配置**：GitHub Secrets (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID)
+
+#### 2. **Cloudflare 一键部署** (`deploy.yml`)
+- **用途**：通过Cloudflare的"Deploy with Workers"功能部署
+- **触发条件**：用户在Cloudflare控制台点击部署按钮
+- **需要配置**：无需GitHub Secrets，Cloudflare平台直接处理
+
 ### 解决方案
 
-#### 1. 配置GitHub Secrets
+#### 1. 配置GitHub Secrets（针对GitHub Actions部署）
 在GitHub仓库中设置以下Secrets：
 
 **必需配置：**
@@ -36,18 +50,12 @@
 5. 选择适当的权限范围
 6. 生成并复制Token
 
-#### 3. 工作流优化
-我已经优化了GitHub Actions配置：
-- 删除了重复的工作流文件
-- 移除了可能导致失败的测试步骤
-- 简化了CI测试流程
-
 ### 验证部署
 配置完成后，GitHub Actions应该能够正常部署。您可以通过以下方式验证：
 
 1. 手动触发工作流：
    - 前往 Actions 标签页
-   - 选择 "Deploy to Cloudflare Workers"
+   - 选择 "一键部署到 Cloudflare Workers"
    - 点击 "Run workflow"
 
 2. 或者推送新的更改到main分支
