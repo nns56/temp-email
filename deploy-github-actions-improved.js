@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// GitHub Actions 专用部署脚本
-// 这个脚本确保在 GitHub Actions 环境中正确部署
+// GitHub Actions 专用部署脚本 - 优化版本
+// 这个脚本确保在 GitHub Actions 环境中正确部署，避免重复初始化数据库
 
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
@@ -62,7 +62,7 @@ try {
       await updateWranglerConfig(databaseId);
     }
   } catch (error) {
-    if (error.message.includes('already exists')) {
+    if (error.message.includes('already exists') || error.stdout?.includes('already exists')) {
       console.log('ℹ️ D1 数据库已存在，跳过创建');
       
       // 获取现有数据库ID并确保配置正确
@@ -97,7 +97,7 @@ try {
   } catch (error) {
     console.log('ℹ️ 无法确认数据库初始化状态，准备初始化...');
   }
-
+  
   // 4. 只有在数据库未初始化时才执行初始化
   if (!isDatabaseInitialized) {
     console.log('🔧 执行数据库初始化...');
@@ -119,7 +119,7 @@ try {
     console.log('⏭️ 数据库已存在，跳过初始化步骤');
   }
   
-  // 4. 部署到 Cloudflare Workers
+  // 5. 部署到 Cloudflare Workers
   console.log('☁️ 部署到 Cloudflare Workers...');
   execSync('npx wrangler deploy', { stdio: 'inherit' });
   
