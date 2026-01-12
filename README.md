@@ -1,4 +1,4 @@
-# Temp-Email 临时邮箱服务（基于 Cloudflare Workers）
+﻿# Temp-Email 临时邮箱服务（基于 Cloudflare Workers）
 
 > 本项目基于 [idinging/freemail](https://github.com/idinging/freemail) 项目的代码进行修改和定制化开发
 
@@ -186,18 +186,41 @@
 - 📈 **监控告警**：Cloudflare Workers Analytics 监控和告警配置
 - 🔄 **CI/CD**：GitHub Actions 自动化测试和部署流水线
 
-## 🚀 部署指南
+## 🚀 一键部署指南
 
-本项目为 Fork 用户提供了两种部署模式，旨在实现“一键部署”。
+本项目提供两种一键部署方案，让您快速将临时邮箱服务部署到 Cloudflare Workers。
 
-### 模式 A：自动部署（推荐）
+### 方案一：GitHub Actions 自动部署（推荐）
 
-此模式利用 Wrangler 的“自动资源配置”功能，在部署时自动创建所需的 D1 数据库和 R2 存储桶。
+此方案利用 GitHub Actions 实现自动化部署，无需本地环境配置。
+
+**部署步骤**:
+
+1. **Fork 项目**：将此仓库 Fork 到您的 GitHub 账户
+2. **配置 Secrets**：在您的仓库 Settings → Secrets and variables → Actions 中配置以下环境变量：
+   - `CLOUDFLARE_API_TOKEN`：您的 Cloudflare API Token
+   - `CLOUDFLARE_ACCOUNT_ID`：您的 Cloudflare 账户 ID
+3. **触发部署**：
+   - **自动触发**：推送代码到 `main` 分支时自动部署
+   - **手动触发**：在 GitHub Actions 页面手动运行部署工作流
+
+### 方案二：本地一键部署
+
+如果您希望在本地环境部署，可以使用以下命令：
+
+```bash
+# 安装依赖
+npm install
+
+# 一键部署（自动创建数据库和初始化）
+npm run deploy
+```
 
 **前提条件**:
 
-*   已安装 [Node.js](https://nodejs.org/) 和 [npm](https://www.npmjs.com/)
-*   已安装 [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) (`npm install -g wrangler`)
+*   已安装 [Node.js](https://nodejs.org/) (>= 20.0.0)
+*   已安装 [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/)
+*   已配置 Cloudflare API Token 和账户 ID
 *   拥有一个 Cloudflare 账户
 
 **部署步骤**:
@@ -215,103 +238,32 @@
     npm install
     ```
 
-3.  **登录 Cloudflare**
+### 环境变量配置
 
-    ```bash
-    wrangler login
-    ```
+部署前需要配置以下环境变量：
 
-4.  **配置环境变量**
+**必填环境变量**:
 
-    在 `wrangler.toml` 文件中，你可以按需修改 `[vars]` 部分的配置，或通过 `wrangler secret put` 命令设置敏感信息。
+- `MAIL_DOMAIN`: 你的邮箱域名，多个域名用逗号分隔
+- `ADMIN_PASSWORD`: 管理员密码
+- `JWT_TOKEN`: 用于 API 认证的令牌
 
-    **必填项**:
+**配置方式**:
 
-    *   `MAIL_DOMAIN`: 你的邮箱域名，多个域名用逗号分隔。
-    *   `ADMIN_PASSWORD`: 管理员密码。
-    *   `JWT_TOKEN`: 用于 API 认证的令牌。
+- **GitHub Actions**: 在仓库 Settings → Secrets and variables → Actions 中配置
+- **本地部署**: 使用 `wrangler secret put` 命令或直接在 `wrangler.toml` 中配置
 
-    **设置示例**:
+### 邮件路由配置
 
-    ```bash
-    # 设置邮箱域名
-    wrangler secret put MAIL_DOMAIN "your-domain.com"
+部署完成后，需要在 Cloudflare 控制台配置邮件路由：
 
-    # 设置管理员密码
-    wrangler secret put ADMIN_PASSWORD
-    # (然后输入你的密码)
-
-    # 设置 JWT 令牌
-    wrangler secret put JWT_TOKEN
-    # (然后输入你的令牌)
-    ```
-
-5.  **部署到 Cloudflare**
-
-    ```bash
-    wrangler deploy
-    ```
-
-    部署过程中，Wrangler 会自动创建 `wrangler.toml` 中定义的 D1 数据库 (`temp_email_db`) 和 R2 存储桶 (`temp-mail-eml`)。
-
-6.  **初始化数据库**
-
-    首次部署后，需要执行以下命令来初始化数据库表结构：
-
-    ```bash
-    npm run d1:execute-basic:remote
-    ```
-
-7.  **配置邮件路由**
-
-    为了接收邮件，你需要在 Cloudflare 控制台设置邮件路由：
-
-    *   前往你的域名 > **Email** > **Email Routing**。
-    *   在 **Routes** 选项卡下，点击 **Add catch-all**。
-    *   在 **Action** 中选择 **Send to a Worker**。
-    *   在 **Worker** 下拉菜单中，选择你刚刚部署的 Worker (`temp-email`)。
-    *   点击 **Save**。
+1. 前往你的域名 > **Email** > **Email Routing**
+2. 在 **Routes** 选项卡下，点击 **Add catch-all**
+3. 在 **Action** 中选择 **Send to a Worker**
+4. 在 **Worker** 下拉菜单中，选择你部署的 Worker
+5. 点击 **Save**
 
 至此，你的临时邮箱服务已成功部署！
-
-### 模式 B：手动创建资源
-
-如果你希望自定义 D1 和 R2 的名称，或者禁用了自动创建功能 (`--no-provision`)，可以手动创建资源。
-
-1.  **创建 D1 数据库**
-
-    ```bash
-    # 将 <YOUR_DB_NAME> 替换为你的数据库名称
-    wrangler d1 create <YOUR_DB_NAME>
-    ```
-
-    执行后，将返回的 `database_id` 添加到 `wrangler.toml` 的 `[[d1_databases]]` 部分：
-
-    ```toml
-    [[d1_databases]]
-    binding = "TEMP_MAIL_DB"
-    database_name = "<YOUR_DB_NAME>"
-    database_id = "<PASTE_YOUR_ID_HERE>"
-    ```
-
-2.  **创建 R2 存储桶**
-
-    ```bash
-    # 将 <YOUR_BUCKET_NAME> 替换为你的存储桶名称
-    wrangler r2 bucket create <YOUR_BUCKET_NAME>
-    ```
-
-    然后，在 `wrangler.toml` 的 `[[r2_buckets]]` 部分更新 `bucket_name`：
-
-    ```toml
-    [[r2_buckets]]
-    binding = "MAIL_EML"
-    bucket_name = "<YOUR_BUCKET_NAME>"
-    ```
-
-3.  **继续部署**
-
-    完成手动配置后，返回**模式 A** 的第 5 步继续部署。
 
 
 ## 🧪 测试与质量保证
@@ -400,20 +352,19 @@ curl -X GET https://your-worker.workers.dev/api/health
 
 ## 🔄 CI/CD 自动化
 
-项目配置了 GitHub Actions CI/CD 流水线，实现自动化测试和部署：
+项目配置了 GitHub Actions CI/CD 流水线，实现一键自动化部署：
 
-### 流水线阶段
+### 部署流程
 
 1. **代码检查**：ESLint 代码质量检查
 2. **类型检查**：TypeScript 类型安全检查
 3. **单元测试**：运行所有测试并生成覆盖率报告
-4. **部署准备**：环境验证和配置检查
-5. **生产部署**：自动部署到 Cloudflare Workers
+4. **一键部署**：自动部署到 Cloudflare Workers，包含数据库创建和初始化
 
-### 环境配置
+### 触发方式
 
-- **开发环境**：自动部署到开发环境
-- **预发布环境**：手动触发部署到预发布环境
+- **自动触发**：推送代码到 `main` 分支时自动部署
+- **手动触发**：在 GitHub Actions 页面手动运行部署工作流
 - **生产环境**：代码审查后手动部署到生产环境
 
 Cloudflare 连接 GitHub 仓库部署
