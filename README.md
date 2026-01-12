@@ -1,4 +1,4 @@
-﻿﻿# Temp-Email 临时邮箱服务（基于 Cloudflare Workers）
+﻿﻿﻿# Temp-Email 临时邮箱服务（基于 Cloudflare Workers）
 
 > 本项目基于 [idinging/freemail](https://github.com/idinging/freemail) 项目的代码进行修改和定制化开发
 
@@ -392,7 +392,7 @@ curl -X GET https://your-worker.workers.dev/api/health
 Cloudflare 连接 GitHub 仓库部署
 - 如果使用 Git 集成而非 wrangler deploy，请在 Dashboard → Workers → Settings → Variables 中手动配置上述变量
 - `[assets]` 已指向 `public/`，静态页面由 Workers + Assets 提供
-- 数据库名称为 `temp_email_db`，绑定名为 `TEMP_MAIL_DB`
+- 数据库名称为 `temp_email_db`，绑定名为 `temp_mail_db`
 - R2存储桶名称为 `temp-mail-eml`，绑定名为 `MAIL_EML`
 
 ### 方式三：GitHub Actions 部署（适配本项目）
@@ -428,7 +428,7 @@ Cloudflare 连接 GitHub 仓库部署
 
 | 变量名 | 说明 | 必需 |
 |--------|------|------|
-| TEMP_MAIL_DB | D1 数据库绑定 | 是 |
+| temp_mail_db | D1 数据库绑定 | 是 |
 | MAIL_EML | R2 存储桶绑定，用于保存完整的邮件 EML 文件 | 是 |
 | MAIL_DOMAIN | 用于生成临时邮箱的域名，支持多个，使用逗号或空格分隔（如 `iding.asia, example.com`） | 是 |
 | ADMIN_PASSWORD | 后台访问密码（严格管理员登录） | 是 |

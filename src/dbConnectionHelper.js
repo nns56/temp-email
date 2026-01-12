@@ -20,7 +20,7 @@ export function getDatabase(env) {
 
   // 简化的数据库绑定名称白名单（按优先级排序）
   const allowedBindings = [
-    'TEMP_MAIL_DB',      // 主绑定名称（推荐）
+    'temp_mail_db',      // 主绑定名称（推荐）
     'DB'                 // 兼容性绑定名称（仅保留一个fallback）
   ];
 
@@ -50,7 +50,7 @@ export function getDatabase(env) {
   // 未找到有效绑定时提供明确的错误信息
   console.error('❌ 未找到有效的D1数据库绑定');
   console.error('🔧 请检查 wrangler.toml 配置，确保已正确设置以下绑定之一:');
-  console.error('   - TEMP_MAIL_DB (推荐)');
+  console.error('   - temp_mail_db (推荐)');
   console.error('   - DB (兼容性)');
   console.error('📖 参考文档: 查看 README.md 中的部署配置说明');
   return null;
