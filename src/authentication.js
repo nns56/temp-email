@@ -140,7 +140,9 @@ export function buildSessionCookie(token, reqUrl = '') {
  */
 function base64UrlEncode(data) {
   const s = typeof data === 'string' ? data : String.fromCharCode(...(data instanceof Uint8Array ? data : new Uint8Array()));
-  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+/g, '');
+  const base64 = btoa(s);
+  const urlSafe = base64.replace(/\+/g, '-').replace(new RegExp('/', 'g'), '_').replace(/=+$/, '');
+  return urlSafe;
 }
 
 /**

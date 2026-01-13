@@ -41,6 +41,8 @@ async function buildWorker() {
       minify: false,
       sourcemap: true,
       legalComments: 'none',
+      keepNames: true,
+      charset: 'utf8',
       define: {
         'process.env.NODE_ENV': '"production"'
       }
