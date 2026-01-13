@@ -256,4 +256,17 @@
   .list-viewport{ max-height: calc(100vh - 260px); overflow: auto; }
 }
 
-
+@media (max-width: 900px){ 
+  body{ 
+    background: var(--bg); 
+  } 
+  
+  .topbar{ 
+    box-shadow: none; 
+    border-bottom: 1px solid var(--border); 
+  } 
+  
+  .card, .container{ 
+    border-radius: 12px; 
+  } 
+}

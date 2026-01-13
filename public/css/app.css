@@ -2743,3 +2743,71 @@ select:disabled{
     --text: #e5e7eb;
   }
 }
+
+:root{ 
+  --bg: #f6f7fb; /* 原 #fff → 轻灰，减少刺眼 */ 
+  --panel: #ffffff; /*  卡片底色 */ 
+  --text: #0f172a; /*  slate-900 */ 
+  --text-subtle:#475569; /*  slate-600 */ 
+  --primary:#2563eb; /*  brand */ 
+  --border:#e5e7eb; /*  gray-200 */ 
+  --shadow: 0 10px 30px rgba(2,6,23,.06), 0 2px 6px rgba(2,6,23,.04); 
+} 
+
+@media (prefers-color-scheme: dark){ 
+  :root{ 
+    --bg:#0b1220; /*  深色背景 */ 
+    --panel:#0f172a; /*  面板深色 */ 
+    --text:#e5e7eb; /*  字色变亮 */ 
+    --text-subtle:#94a3b8; /*  次级字色 */ 
+    --border:#1f2937; /*  分隔线 */ 
+    --shadow: 0 8px 24px rgba(0,0,0,.35), 0 1px 4px rgba(0,0,0,.25); 
+  } 
+} 
+
+/* 页面背景与默认文字 */ 
+html,body{ 
+  background: var(--bg); 
+  color: var(--text); 
+} 
+
+/* 卡片/容器通用降噪：面板底色、圆角、阴影统一 */ 
+.card, .container, .listcard, .mailbox-container, .inbox-card, .mailbox-info-card, .topbar, .seg, .panel, .list-viewport{ 
+  background: var(--panel); 
+  box-shadow: var(--shadow); 
+  border: 1px solid var(--border); 
+  border-radius: 14px; 
+} 
+
+/* 按钮与焦点可见性（提高可访问性） */ 
+.btn, .seg-btn, .input, .select{ 
+  outline: none; 
+} 
+
+.btn:focus-visible,.seg-btn:focus-visible,.input:focus-visible,.select:focus-visible{ 
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 35%, white); 
+} 
+
+/* 次级文本与分割线 */ 
+.text-subtle{ 
+  color: var(--text-subtle); 
+} 
+
+.border-subtle{ 
+  border-color: var(--border); 
+} 
+
+/* 顶部导航轻磨砂（降低强对比） */ 
+.topbar{ 
+  backdrop-filter: saturate(120%) blur(8px); 
+} 
+
+/* Toast/Loading 背板轻蒙层 */ 
+.toast, .loading-indicator{ 
+  backdrop-filter: blur(6px); 
+} 
+
+/* 阴影统一到全站，避免局部"脏"阴影 */ 
+.shadow-elev{ 
+  box-shadow: var(--shadow); 
+}
