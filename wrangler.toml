@@ -18,12 +18,12 @@ compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2026-01-11"
 compatibility_flags = ["nodejs_compat"]
 
-# D1 数据库绑定（使用环境变量配置）
-# 部署时通过环境变量 D1_DATABASE_ID 设置数据库ID
+# D1 数据库绑定（Wrangler v4 语法）
+# 注意：Wrangler v4 使用 database_name 而不是 name
 [[d1_databases]]
-binding = "TEMP_MAIL_DB"
-name = "temp_email_db"
-database_id = "${D1_DATABASE_ID}"
+binding = "temp_email_db"
+database_name = "temp_email_db"
+database_id = "${D1_DATABASE_ID}"  # TODO: 需要获取实际的数据库ID
 
 # 静态资源目录（Workers + Assets）
 [assets]
@@ -54,8 +54,6 @@ port = 8787
 # persist = true
 # 本地持久化目录
 # persist_to = "./.wrangler/state"
-# 启用热重载
-live_reload = true
 
 # 构建配置
 [build]

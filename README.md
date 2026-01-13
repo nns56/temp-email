@@ -13,7 +13,49 @@
 - [📊 监控与告警](#-监控与告警)
 - [🔄 CI/CD 自动化](#-cicd-自动化)
 - [🛠️ 故障排除](#️-故障排除)
-- [许可证](#许可证)
+- [贡献](#-贡献)
+- [许可证](#-许可证)
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request 来改进项目！
+
+### 开发设置
+1. 克隆仓库：
+   ```bash
+   git clone https://github.com/noxenys/temp-email.git
+   cd temp-email
+   ```
+
+2. 安装依赖：
+   ```bash
+   npm install
+   ```
+
+3. 复制环境变量模板：
+   ```bash
+   cp .env.example .env
+   # 根据需要编辑 .env 文件
+   ```
+
+4. 启动开发服务器：
+   ```bash
+   npm run dev
+   ```
+
+### 贡献步骤
+1. Fork 仓库
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+### 开发脚本
+- `npm run dev` - 启动开发服务器
+- `npm run build` - 构建项目
+- `npm run deploy` - 部署到 Cloudflare Workers
+- `npm test` - 运行测试
+- `npm run lint` - 检查代码质量
 
 ## 📖 项目概述
 
@@ -454,45 +496,274 @@ curl -X GET https://your-worker.workers.dev/api/health
 - R2存储桶名称为 `temp-mail-eml`，绑定名为 `MAIL_EML`
 - 智能部署脚本会自动处理数据库创建和环境变量配置
 
-## 🛠️ 故障排除
+# Temp Email - 临时邮箱服务
 
-### 常见问题
-1. **部署失败**
-   - 确保已正确配置 Cloudflare API Token
-   - 检查账户是否有足够的权限
-   - 确认环境变量已正确设置
-   - 使用 `npm run deploy` 而不是 `wrangler deploy` 以获得智能初始化功能
+基于 Cloudflare Workers 的临时邮箱服务，提供临时邮箱地址和邮件接收功能。
 
-2. **邮件无法接收**
-   - 检查邮件路由是否已正确配置
-   - 确认域名DNS设置正确
-   - 验证邮箱域名与MAIL_DOMAIN环境变量一致
+## 🌟 功能特性
 
-3. **数据库连接错误**
-   - 检查D1数据库是否已创建
-   - 确认database_id配置正确
-   - 运行 `npm run deploy` 让智能脚本自动处理数据库配置
+- **即时邮箱创建**：无需注册，直接使用临时邮箱
+- **邮件接收**：实时接收发送到临时邮箱的邮件
+- **D1 数据库存储**：使用 Cloudflare D1 存储邮件数据
+- **R2 存储**：使用 R2 存储完整 EML 邮件内容
+- **API 接口**：提供 RESTful API 接口
+- **自动部署**：支持 GitHub Actions 一键部署
 
-4. **环境变量配置问题**
-   - 确保必需的环境变量已正确设置（MAIL_DOMAIN, ADMIN_PASSWORD, JWT_SECRET）
-   - JWT_SECRET 用于JWT令牌签名，JWT_TOKEN 用于根管理员覆盖（可选）
-   - 检查D1_DATABASE_ID是否已正确设置（智能部署脚本会自动处理）
+## 🛠 技术栈
 
-5. **登录问题**
-   - 确认 ADMIN_PASSWORD 环境变量已设置
-   - 检查 JWT_SECRET 配置（必需）和 JWT_TOKEN 配置（可选，用于根管理员）
-   - 尝试清除浏览器缓存和 Cookie
+- **Cloudflare Workers**：边缘计算平台
+- **Cloudflare D1**：SQL 数据库服务
+- **Cloudflare R2**：对象存储服务
+- **Wrangler**：Cloudflare 开发工具 (v4)
+- **Node.js**：运行环境 (>=20.0.0)
 
-6. **界面显示异常**
-   - 确认静态资源路径配置正确
-   - 检查浏览器控制台是否有 JavaScript 错误
-   - 验证 CSS 文件加载是否正常
+## 🚀 快速开始
 
-7. **自动刷新不工作**
-   - 确认已选中邮箱地址
-   - 检查浏览器是否支持 Page Visibility API
-   - 查看网络连接是否稳定
+### 环境准备
 
-## 许可证
+1. **安装 Node.js** (>=20.0.0)
+2. **安装 Wrangler CLI**:
+   ```bash
+   npm install -g wrangler
+   ```
+3. **登录 Cloudflare**:
+   ```bash
+   wrangler login
+   ```
 
-Apache-2.0 License
+### 本地开发
+
+1. **安装依赖**:
+   ```bash
+   npm install
+   ```
+
+2. **本地开发服务器**:
+   ```bash
+   npm run dev
+   ```
+
+### 数据库初始化
+
+1. **创建并初始化 D1 数据库**:
+   ```bash
+   npm run d1:setup
+   ```
+
+2. **本地数据库操作**:
+   ```bash
+   # 本地执行 SQL
+   npm run d1:execute:local
+   
+   # 远程执行 SQL
+   npm run d1:execute:remote
+   ```
+
+## ⚙️ 部署配置
+
+### GitHub Actions 一键部署
+
+1. **配置 GitHub Secrets**:
+   - `CLOUDFLARE_API_TOKEN` - Cloudflare API Token
+   - `CLOUDFLARE_ACCOUNT_ID` - Cloudflare Account ID
+
+2. **触发部署**:
+   - 推送到 main 分支自动触发
+   - 或手动运行 GitHub Actions 工作流
+
+### 手动部署
+
+```bash
+# 使用部署脚本（推荐）
+npm run deploy
+
+# 直接部署
+npm run deploy:direct
+```
+
+## 📁 项目结构
+
+```
+├── worker.js                 # Worker 主文件
+├── wrangler.toml            # Wrangler 配置文件
+├── d1-init.sql              # D1 数据库初始化脚本
+├── d1-init-basic.sql        # D1 基础数据库初始化脚本
+├── deploy-github-actions.js # GitHub Actions 部署脚本
+├── deploy-with-env.js       # 环境部署脚本
+├── build.js                 # 构建脚本
+├── docs/                    # 文档目录
+│   ├── api.md              # API 文档
+│   ├── d1-row-reads-analysis.md # D1 行读取分析
+│   └── ...
+├── .github/
+│   └── workflows/
+│       └── ci.yml          # CI/CD 工作流
+├── DATABASE_SETUP_GUIDE.md  # 数据库设置指南
+├── DEPLOYMENT_GUIDE.md      # 部署指南
+└── GITHUB_ACTIONS_SETUP.md  # GitHub Actions 设置指南
+```
+
+## 🗄️ 数据库结构
+
+使用 D1 数据库存储以下信息：
+
+- **mailboxes**：邮箱账户信息
+- **emails**：邮件信息
+- **sessions**：会话信息
+
+## 🗂️ Wrangler 配置
+
+项目使用 Wrangler v4 进行配置，关键配置如下：
+
+- **D1 数据库绑定**：使用 `database_name` 而不是旧版本的 `name` 字段
+- **绑定名称**：`temp_email_db`
+- **数据库名称**：`temp_email_db`
+- **数据库ID**：通过环境变量 `${D1_DATABASE_ID}` 配置
+
+配置示例：
+```toml
+[[d1_databases]]
+binding = "temp_email_db"
+database_name = "temp_email_db"
+database_id = "${D1_DATABASE_ID}"
+```
+
+## 🔐 环境变量
+
+项目使用以下环境变量：
+
+- `D1_DATABASE_ID`：D1 数据库 ID
+- `JWT_TOKEN`：JWT认证令牌（或使用JWT_SECRET）
+- `JWT_SECRET`：JWT密钥（JWT_TOKEN和JWT_SECRET二选一，推荐使用JWT_TOKEN）
+- `MAIL_DOMAIN`：邮件域名配置
+- `FORWARD_RULES`：邮件转发规则（JSON格式）
+- `RESEND_API_KEY`：Resend API 密钥（用于发送邮件）
+- `ADMIN_USERNAME`：管理后台用户名
+- `ADMIN_PASSWORD`：管理后台密码
+- `CACHE_TTL`：缓存TTL（秒）
+
+## 🧪 测试
+
+```bash
+# 运行测试
+npm test
+# 或者
+npm run test
+
+# 运行测试并生成覆盖率报告
+npm run test:coverage
+
+# 监听模式运行测试
+npm run test:watch
+
+# 构建项目
+npm run build
+```
+
+## 🔍 代码质量
+
+```bash
+# 代码检查
+npm run lint
+
+# 自动修复代码问题
+npm run lint:fix
+
+# 类型检查
+npm run type-check
+```
+
+## 🗄️ D1 数据库操作
+
+```bash
+# 初始化远程 D1 数据库
+npm run d1:setup
+
+# 在本地执行 SQL 查询
+npm run d1:execute:local -- -f your-sql-file.sql
+
+# 在远程执行 SQL 查询
+npm run d1:execute:remote -- -f your-sql-file.sql
+
+# 执行基础数据库初始化（本地）
+npm run d1:execute-basic:local
+
+# 执行基础数据库初始化（远程）
+npm run d1:execute-basic:remote
+
+# 直接查询本地数据库
+npm run d1:query:local
+
+# 直接查询远程数据库
+npm run d1:query:remote
+```
+
+## 📄 API 接口
+
+### 📬 邮箱相关
+- `GET /api/health` - 健康检查
+  - 返回: `{ "success": true, "version": "1.0.0", "timestamp": "2026-01-13T10:00:00Z" }`
+- `POST /api/mailbox` - 创建邮箱
+  - 参数: `{ address: "username@domain.com", password?: "optional password" }`
+  - 返回: `{ "success": true, "address": "username@domain.com", "password": "generated password" }`
+- `GET /api/emails?mailbox=email@domain.com` - 获取邮件列表
+  - 返回: 邮件列表数组，包含发件人、主题、时间等信息
+- `GET /api/email/:id` - 获取邮件详情
+  - 返回: 完整的邮件内容，包括HTML和纯文本
+- `DELETE /api/email/:id` - 删除单个邮件
+  - 返回: `{ "success": true, "deleted": true, "message": "邮件已删除" }`
+- `DELETE /api/emails?mailbox=email@domain.com` - 清空邮箱所有邮件
+  - 返回: `{ "success": true, "deletedCount": 5, "previousCount": 5 }`
+
+### 🔐 认证相关
+- `POST /api/login` - 用户登录
+  - 参数: `{ "username": "用户名", "password": "密码" }`
+  - 返回: `{ success: true, role, can_send, mailbox_limit }` 并设置会话Cookie
+- `POST /api/logout` - 用户退出
+  - 返回: `{ "success": true }`
+
+### 🌐 系统接口
+- `GET /api/domains` - 获取可用域名列表
+  - 返回: 域名数组
+
+### 👥 用户管理（管理后台）
+- `GET /api/users` - 获取用户列表
+  - 返回: 用户数组（含 id/username/role/mailbox_limit/can_send/mailbox_count/created_at）
+- `GET /api/users/{userId}/mailboxes` - 获取指定用户的邮箱列表
+  - 返回: 邮箱数组（address/created_at）
+- `POST /api/users` - 创建用户
+  - 参数: `{ username, password, role }`（role: `user` | `admin`）
+  - 返回: `{ success: true }`
+- `PATCH /api/users/{userId}` - 更新用户
+  - 参数示例: `{ username?, password?, mailboxLimit?, can_send?, role? }`
+  - 返回: `{ success: true }`
+- `DELETE /api/users/{userId}` - 删除用户
+  - 返回: `{ success: true }`
+- `POST /api/users/assign` - 给用户分配邮箱
+  - 参数: `{ username, address }`
+  - 返回: `{ success: true }`
+
+## 🛡️ 安全特性
+
+- **代码隔离**：Worker 逻辑已模块化，保持代码简洁
+- **环境变量保护**：敏感信息通过 Secrets 管理
+- **自动测试**：每次部署前运行完整测试套件
+- **权限控制**：API 访问权限管理
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request 来改进项目！
+
+## 📄 许可证
+
+本项目采用 Apache License 2.0 许可证 - 详见 [LICENSE](./LICENSE) 文件。
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+## 🆘 支持
+
+如遇到问题，请：
+
+1. 查看 GitHub Issues
+2. 查看文档目录中的相关文档
+3. 提交新的 Issue 描述问题
