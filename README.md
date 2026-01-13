@@ -1,7 +1,5 @@
 ﻿﻿# Temp Email - 临时邮箱服务
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/noxenys/temp-email)
-
 ## 📋 目录
 - [项目概述](#-项目概述)
 - [🌟 功能特性](#-功能特性)
