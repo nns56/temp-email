@@ -18,12 +18,12 @@ compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2026-01-11"
 compatibility_flags = ["nodejs_compat"]
 
-# D1 数据库绑定（动态配置，支持自动恢复）
+# D1 数据库绑定（部署时自动创建）
 [[d1_databases]]
 binding = "TEMP_MAIL_DB"
 database_name = "temp_email_db"
-# database_id 将在首次部署时自动创建，支持动态恢复
-database_id = "${TEMP_MAIL_DB_ID}"
+# database_id 将在部署时动态更新
+database_id = ""
 
 # 静态资源目录（Workers + Assets）
 [assets]
