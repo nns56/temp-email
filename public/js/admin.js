@@ -380,7 +380,6 @@ async function loadUserMailboxes(userId, username, page = currentMailboxPage, bt
           </div>
         </div>`;
       }).join('') + `</div>`;
-      `).join('') + `</div>`;
     
     // 更新分页UI
     updateMailboxesPaginationUI();
@@ -1174,4 +1173,3 @@ window.selectMailboxAndGoToHomepage = function(address, event) {
     }
   }
 };
-
