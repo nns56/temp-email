@@ -5,338 +5,215 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>我的邮箱 - iDing's临时邮箱</title>
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <style>.precheck-hide body{ visibility: hidden !important; }</style>
-  <style>
-    /* 三态容器样式 */
-    .state-empty, .state-error, .state-loading {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 3rem 2rem;
-      text-align: center;
-      color: #64748b;
-    }
-    
-    .state-icon {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-    }
-    
-    .state-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      color: #1e293b;
-    }
-    
-    .state-description {
-      margin-bottom: 1.5rem;
-      line-height: 1.5;
-    }
-    
-    .state-button {
-      padding: 0.5rem 1.5rem;
-      border-radius: 0.375rem;
-      font-weight: 500;
-      cursor: pointer;
-    }
-  </style>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="shortcut icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/css/app.css" />
   <link rel="stylesheet" href="/css/mailbox.css" />
   <script src="/js/auth-guard.js" defer></script>
   <script>
-    // 访问邮箱页先做前端快速鉴权，仅允许 mailbox 角色
+    // 简单的鉴权逻辑保留
     (function(){
+      // 恢复主题设置
+      const theme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+
       fetch('/api/session', { headers: { 'Cache-Control': 'no-cache' } })
         .then(r => r.ok ? r.json() : Promise.reject('unauth'))
         .then(s => {
           if (s && s.role === 'mailbox'){
             try{ document.documentElement.classList.remove('precheck-hide'); }catch(_){ }
-            
-            // 状态管理逻辑
-            const stateLoading = document.getElementById('state-loading');
-            const stateEmpty = document.getElementById('state-empty');
-            const stateError = document.getElementById('state-error');
-            const emailList = document.getElementById('email-list');
-            const listPager = document.getElementById('list-pager');
-            
-            // 状态切换函数
-            function showState(state) {
-              [stateLoading, stateEmpty, stateError, emailList, listPager].forEach(el => {
-                if (el) el.style.display = 'none';
-              });
-              
-              if (state === 'loading' && stateLoading) {
-                stateLoading.style.display = 'flex';
-              } else if (state === 'empty' && stateEmpty) {
-                stateEmpty.style.display = 'flex';
-              } else if (state === 'error' && stateError) {
-                stateError.style.display = 'flex';
-              } else if (state === 'list' && emailList) {
-                emailList.style.display = 'block';
-                if (listPager) listPager.style.display = 'flex';
-              }
-            }
-            
-            // 按钮事件绑定
-            document.getElementById('refresh-empty')?.addEventListener('click', () => {
-              loadEmails();
-            });
-            
-            document.getElementById('retry-error')?.addEventListener('click', () => {
-              loadEmails();
-            });
-            
-            // 邮件加载函数
-            function loadEmails() {
-              showState('loading');
-              
-              fetch('/api/emails', { 
-                headers: { 'Cache-Control': 'no-cache' } 
-              })
-                .then(r => {
-                  if (!r.ok) throw new Error('Network response was not ok');
-                  return r.json();
-                })
-                .then(data => {
-                  if (data && data.emails && data.emails.length > 0) {
-                    showState('list');
-                    // 这里应该调用现有的渲染逻辑
-                    if (window.renderEmailList) {
-                      window.renderEmailList(data.emails);
-                    }
-                  } else {
-                    showState('empty');
-                  }
-                })
-                .catch(error => {
-                  console.error('Failed to load emails:', error);
-                  showState('error');
-                });
-            }
-            
-            // 初始加载
-            loadEmails();
-            
-            return;
+          } else {
+            location.replace('/');
           }
-          // 其他角色：回首页
-          location.replace('/');
         })
         .catch(() => {
-          // 未登录：进入加载页做鉴权
-          if (window.AuthGuard) { window.AuthGuard.goLoading('/html/mailbox.html', '正在校验权限…'); }
-          else { location.replace('/templates/loading.html?redirect=%2Fhtml%2Fmailbox.html&status=' + encodeURIComponent('正在校验权限…')); }
+           if (window.AuthGuard) { window.AuthGuard.goLoading('/html/mailbox.html', '正在校验权限…'); }
+           else { location.replace('/templates/loading.html?redirect=%2Fhtml%2Fmailbox.html&status=' + encodeURIComponent('正在校验权限…')); }
         });
     })();
   </script>
 </head>
 <body>
+
+<!-- 顶部导航 -->
 <div class="topbar">
   <div class="topbar-inner">
     <div class="brand">
       <span class="brand-icon">📧</span>
-      <span class="brand-text">iDing's临时邮箱</span>
+      <span class="brand-text">iDing's</span>
     </div>
-    <div id="role-badge" class="role-badge" title="邮箱用户">邮箱用户</div>
+    
     <div class="nav-actions">
-      <a id="repo" class="btn btn-ghost" href="https://github.com/idinging/freemail" target="_blank" rel="noopener noreferrer" title="GitHub 开源仓库">
-        <span class="btn-icon">🔗</span>
-        <span class="btn-text">GitHub</span>
-      </a>
-      <button id="logout" class="btn btn-secondary" title="退出登录">
+      <button id="theme-toggle" class="theme-toggle" title="切换主题">
+        <span class="icon-moon">🌙</span>
+        <span class="icon-sun hidden">☀️</span>
+      </button>
+      <button id="logout" class="btn btn-secondary btn-sm" title="退出登录">
         <span class="btn-icon">🚪</span>
-        <span class="btn-text">退出登录</span>
+        <span class="btn-text">退出</span>
       </button>
     </div>
   </div>
+  <div id="auto-refresh-bar" class="refresh-progress-bar"></div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<div class="container mailbox-container">
-  <div class="main mailbox-main">
-    <!-- 邮箱信息卡片 -->
-    <div class="card mailbox-info-card">
-      <h2>
-        <span class="card-icon">📬</span>
-        我的邮箱
-      </h2>
-      <div class="mailbox-info">
-        <div class="mailbox-display">
-          <span class="mailbox-icon">📧</span>
-          <span id="current-mailbox" class="mailbox-address">加载中...</span>
-          <button id="copy-mailbox" class="btn btn-secondary btn-sm" title="复制邮箱地址">
-            <span class="btn-icon">📋</span>
-            <span>复制</span>
-          </button>
-        <!-- 修改密码 -->
-          <button id="change-password" class="btn btn-ghost btn-sm" title="修改密码">
-            <span class="btn-icon">🔒</span>
-            <span>修改密码</span>
-          </button>
+<!-- 主界面 -->
+<div class="mailbox-container">
+  
+  <!-- 顶部 ID Card -->
+  <div class="mailbox-header-section">
+    <div class="mailbox-id-card">
+      <div class="id-card-info">
+        <span class="id-card-label">TEMPORARY EMAIL ID</span>
+        <div class="id-card-address">
+          <span id="current-mailbox">loading...</span>
         </div>
-        <div class="mailbox-toolbar">
-          <div class="toolbar-left">
-            <span class="chip chip-unread">未读 <span id="unread-count">0</span></span>
-            <span class="chip chip-total">全部 <span id="total-count">0</span></span>
-          </div>
-          <div class="toolbar-right">
-            <label class="toggle" title="开启后按间隔自动刷新">
-              <input id="auto-refresh" type="checkbox" />
-              <span>自动刷新</span>
-            </label>
-            <select id="refresh-interval" class="select select-sm" title="刷新间隔">
-              <option value="10">10秒</option>
-              <option value="30" selected>30秒</option>
-              <option value="60">60秒</option>
-            </select>
-            <input id="search-box" class="input input-sm" placeholder="搜索发件人/主题" />
-            <button id="clear-filter" class="btn btn-ghost btn-sm" title="清空筛选">清空</button>
-            <button id="refresh-emails" class="btn btn-ghost" title="立即刷新">
-              <span class="btn-icon">🔄</span>
-              <span>刷新</span>
-            </button>
-          </div>
-        </div>
+        <div class="id-card-label" style="opacity: 0.6; font-size: 10px; margin-top: 4px;">VALID SESSION • SECURE • ENCRYPTED</div>
+      </div>
+      <div class="id-card-actions">
+        <button id="copy-mailbox" class="btn-glass">
+          <span>📋</span> 复制地址
+        </button>
+        <button id="change-password" class="btn-glass">
+          <span>🔒</span> 密码
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- 收件箱卡片 -->
-    <div class="card inbox-card">
-      <div class="listcard-header">
-        <h2 class="listcard-title">
-          <span class="card-icon">📨</span>
-          <span>收件箱</span>
-        </h2>
-        <div id="list-loading" class="loading-indicator" style="pointer-events:none" role="status" aria-live="polite">
+  <!-- 工具栏 -->
+  <div class="mailbox-toolbar">
+    <div class="toolbar-group">
+      <input id="search-box" class="input input-sm" placeholder="🔍 搜索邮件..." style="width: 200px;">
+      <span class="chip chip-unread" id="unread-badge" style="display:none;">未读 <span id="unread-count">0</span></span>
+    </div>
+    <div class="toolbar-group">
+      <label class="toggle" title="自动刷新">
+        <input id="auto-refresh" type="checkbox" checked />
+        <span>自动接收</span>
+      </label>
+      <button id="refresh-emails" class="btn btn-ghost btn-sm">
+        <span>🔄</span> 刷新
+      </button>
+    </div>
+  </div>
+
+  <!-- 双栏视图 -->
+  <div class="mailbox-split-view">
+    
+    <!-- 左侧：邮件列表 -->
+    <div class="email-list-pane">
+      <div class="email-list-header">
+        <span class="email-list-title">收件箱</span>
+        <span class="text-sm text-muted" id="total-count">0 封邮件</span>
+      </div>
+      
+      <div id="email-list-container" class="email-list-scroll">
+        <!-- 列表加载中 -->
+        <div id="list-loading" class="state-loading" style="display:flex; padding: 20px;">
           <div class="spinner"></div>
-          <span>加载中…</span>
+          <p class="text-sm text-muted">正在获取邮件...</p>
+        </div>
+        
+        <!-- 空状态 -->
+        <div id="list-empty" class="state-empty" style="display:none; padding: 40px 20px;">
+          <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
+          <p class="text-muted">暂无邮件</p>
+          <p class="text-xs text-muted">等待信鸽到达...</p>
+        </div>
+
+        <!-- 列表内容 (JS渲染) -->
+        <div id="email-list"></div>
+      </div>
+    </div>
+
+    <!-- 右侧：邮件详情 -->
+    <div class="email-detail-pane">
+      
+      <!-- 详情页空状态 (未选择邮件) -->
+      <div id="detail-empty" class="email-content-empty">
+        <div class="empty-illustration">
+          <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="80" fill="var(--primary-light)"/>
+            <path d="M60 80L100 110L140 80" stroke="var(--primary)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="50" y="60" width="100" height="80" rx="8" stroke="var(--primary)" stroke-width="8"/>
+          </svg>
+        </div>
+        <h3>选择一封邮件查看</h3>
+        <p>点击左侧列表中的邮件以查看详细内容</p>
+      </div>
+
+      <!-- 详情页内容 -->
+      <div id="detail-content" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+        <div class="email-detail-header">
+          <h1 id="detail-subject" class="detail-subject">无主题</h1>
+          <div class="detail-meta">
+            <div id="detail-avatar" class="email-avatar">?</div>
+            <div class="detail-sender-info">
+              <div id="detail-from" class="detail-from">发件人</div>
+              <div id="detail-date" class="detail-time">时间</div>
+            </div>
+          </div>
+        </div>
+        <div id="detail-body" class="email-detail-body">
+          <!-- iframe or html content -->
         </div>
       </div>
-      <div class="list-viewport" style="position:relative;contain:layout paint;isolation:isolate;">
-        <div id="email-list" class="list"></div>
-        
-        <!-- 三态容器 -->
-        <div id="state-loading" class="state-loading">
-          <div class="state-icon">⏳</div>
-          <div class="state-title">加载中...</div>
-          <div class="state-description">正在获取邮件列表，请稍候</div>
-        </div>
-        
-        <div id="state-empty" class="state-empty">
-          <div class="state-icon">📭</div>
-          <div class="state-title">暂无邮件</div>
-          <div class="state-description">仅显示近24小时内的邮件，超过24小时的邮件会自动删除</div>
-          <button id="refresh-empty" class="state-button" style="background:#3b82f6;color:white;">刷新</button>
-        </div>
-        
-        <div id="state-error" class="state-error">
-          <div class="state-icon">❌</div>
-          <div class="state-title">加载失败</div>
-          <div class="state-description">无法获取邮件列表，请检查网络连接后重试</div>
-          <button id="retry-error" class="state-button" style="background:#ef4444;color:white;">重试</button>
-        </div>
-        
-        <div id="list-pager" class="pager" style="display:none">
-          <button id="prev-page" class="btn btn-ghost btn-sm">上一页</button>
-          <span id="page-info" class="muted" style="min-width:100px;text-align:center"></span>
-          <button id="next-page" class="btn btn-ghost btn-sm">下一页</button>
-        </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<!-- 移动端详情模态框 (仅在移动端使用) -->
+<div id="email-modal" class="modal">
+  <div class="modal-content" style="height: 90vh; display: flex; flex-direction: column; padding: 0;">
+    <div class="modal-header" style="padding: 16px;">
+      <h3 class="modal-title">邮件详情</h3>
+      <button id="modal-close" class="btn-close">×</button>
+    </div>
+    <div class="modal-body" style="flex: 1; overflow: hidden; padding: 0;">
+      <!-- 复用详情结构，通过JS克隆或重新渲染 -->
+      <div id="modal-detail-container" style="height: 100%; overflow-y: auto; padding: 16px;">
+        <!-- Content will be injected here -->
       </div>
     </div>
   </div>
 </div>
 
-<div id="footer-slot"></div>
-
-<!-- 邮件详情模态框 -->
-<div class="modal" id="email-modal">
-  <div class="modal-card">
+<!-- 密码修改模态框 -->
+<div id="password-modal" class="modal">
+  <div class="modal-content">
     <div class="modal-header">
-      <div id="modal-subject">
-        <span class="modal-icon">📧</span>
-        <span>邮件详情</span>
-      </div>
-      <button id="modal-close" class="close">✕</button>
-    </div>
-    <div class="modal-body">
-      <div id="modal-content"></div>
-    </div>
-  </div>
-</div>
-  <script src="/js/toast-utils.js"></script>
-  <script type="module" src="/js/mailbox.js"></script>
-<script>
-  // 动态加载公共 footer 模板
-  (async function(){
-    try{
-      const res = await fetch('/templates/footer.html', { cache: 'no-cache' });
-      const html = await res.text();
-      const slot = document.getElementById('footer-slot');
-      if (slot){
-        slot.outerHTML = html;
-        setTimeout(()=>{ const y=document.getElementById('footer-year'); if (y) y.textContent=new Date().getFullYear(); },0);
-      }
-    }catch(_){ }
-  })();
-</script>
-</body>
-</html>
-<!-- 确认删除模态框 -->
-<div class="modal" id="confirm-modal">
-  <div class="modal-card confirm-card">
-    <div class="modal-header confirm-header">
-      <div>
-        <span class="modal-icon">⚠️</span>
-        <span>确认操作</span>
-      </div>
-      <button id="confirm-close" class="close">✕</button>
-    </div>
-    <div class="modal-body confirm-body">
-      <div id="confirm-message" class="confirm-message"></div>
-      <div class="confirm-actions">
-        <button id="confirm-cancel" class="btn btn-secondary">取消</button>
-        <button id="confirm-ok" class="btn btn-danger">确定</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 修改密码模态框 -->
-<div class="modal" id="password-modal">
-  <div class="modal-card">
-    <div class="modal-header">
-      <div>
-        <span class="modal-icon">🔒</span>
-        <span>修改密码</span>
-      </div>
-      <button id="password-close" class="close">✕</button>
+      <h3 class="modal-title">修改密码</h3>
+      <button id="password-close" class="btn-close">×</button>
     </div>
     <div class="modal-body">
       <form id="password-form">
         <div class="form-group">
-          <label for="current-password">当前密码</label>
-          <input type="text" id="current-password" class="input" placeholder="请输入当前密码" required />
+          <label>当前密码</label>
+          <input type="password" id="current-password" class="input" required>
         </div>
         <div class="form-group">
-          <label for="new-password">新密码</label>
-          <input type="text" id="new-password" class="input" placeholder="请输入新密码（至少6位）" minlength="6" required />
+          <label>新密码</label>
+          <input type="password" id="new-password" class="input" required minlength="6">
         </div>
         <div class="form-group">
-          <label for="confirm-password">确认新密码</label>
-          <input type="text" id="confirm-password" class="input" placeholder="请再次输入新密码" minlength="6" required />
+          <label>确认新密码</label>
+          <input type="password" id="confirm-password" class="input" required minlength="6">
         </div>
-        <div class="form-actions">
-          <button type="button" id="password-cancel" class="btn btn-secondary">取消</button>
-          <button type="submit" id="password-submit" class="btn btn-primary">修改密码</button>
+        <div class="modal-actions">
+          <button type="button" id="password-cancel" class="btn btn-ghost">取消</button>
+          <button type="submit" id="password-submit" class="btn btn-primary">确认修改</button>
         </div>
       </form>
     </div>
   </div>
 </div>
+
+<script src="/js/toast-utils.js"></script>
+<script src="/js/mailbox.js"></script>
+</body>
+</html>

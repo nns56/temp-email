@@ -92,10 +92,25 @@ export async function handleTelegramWebhook(request, env, db) {
 
     // 处理命令
     if (text.startsWith('/start')) {
-      await replyTelegram(env, chatId, '👋 欢迎使用临时邮箱 Bot！\n\n可用命令：\n/new - 创建新邮箱\n/list - 查看我的邮箱\n/latest [邮箱] - 查看最新邮件\n/code [邮箱] - 快速获取验证码\n/emails [邮箱] - 列出最近几封邮件\n/domains - 查看当前可用域名\n/domainstats - 查看域名统计');
+      await replyTelegram(env, chatId, '👋 欢迎使用临时邮箱 Bot！\n\n可用命令：\n/new [域名] - 创建新邮箱\n/list - 查看我的邮箱\n/latest [邮箱] - 查看最新邮件\n/code [邮箱] - 快速获取验证码\n/emails [邮箱] - 列出最近几封邮件\n/domains - 查看当前可用域名\n/domainstats - 查看域名统计\n/id - 查看我的 Chat ID');
+    } else if (text.startsWith('/id')) {
+        await replyTelegram(env, chatId, `🆔 您的 Chat ID 是: <code>${chatId}</code>`, 'HTML');
     } else if (text.startsWith('/new')) {
       const domains = (env.MAIL_DOMAIN || 'temp.example.com').split(/[,\s]+/).filter(Boolean);
-      const domain = domains[0];
+      const parts = text.split(/\s+/);
+      let domain = domains[0];
+      
+      if (parts[1]) {
+        const target = parts[1].trim().toLowerCase();
+        const found = domains.find(d => d.toLowerCase() === target);
+        if (found) {
+          domain = found;
+        } else {
+           await replyTelegram(env, chatId, `❌ 域名不可用。可用域名:\n${domains.map(d => `<code>${d}</code>`).join('\n')}`, 'HTML');
+           return new Response('OK');
+        }
+      }
+      
       const email = `${generateRandomId()}@${domain}`;
         
       try {

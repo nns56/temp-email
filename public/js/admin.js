@@ -127,10 +127,25 @@ function formatTs(ts){
 // showToast 函数已由 toast-utils.js 统一提供
 
 // 公用复制
-window.copyText = async (text) => {
-  try{ await navigator.clipboard.writeText(String(text||'')); showToast('已复制到剪贴板','success'); }
+window.copyText = async (text, btn) => {
+  try{ 
+    await navigator.clipboard.writeText(String(text||'')); 
+    showToast('已复制到剪贴板','success'); 
+    
+    // 如果传递了按钮元素，改变其图标提供反馈
+    if (btn && btn.querySelector) {
+      const span = btn.querySelector('span');
+      if (span) {
+        const originalText = span.textContent;
+        span.textContent = '✅';
+        setTimeout(() => {
+          span.textContent = originalText;
+        }, 1500);
+      }
+    }
+  }
   catch(_){ showToast('复制失败','warn'); }
-}
+};
 
 // 当前确认对话框的控制器，避免快速连续操作时的冲突
 let currentAdminConfirmController = null;
@@ -356,7 +371,7 @@ async function loadUserMailboxes(userId, username, page = currentMailboxPage, bt
             <span class="time">${formatTs(x.created_at)}</span>
           </div>
           <div class="mailbox-actions" onclick="event.stopPropagation();">
-            <button class="btn btn-ghost btn-sm" onclick="copyText('${safeAddress}')" title="复制邮箱地址">
+            <button class="btn btn-ghost btn-sm" onclick="copyText('${safeAddress}', this)" title="复制邮箱地址">
               <span>📋</span>
             </button>
             <button class="btn btn-danger btn-sm" onclick="unassignSingleMailbox('${escapeHtml(username)}', '${safeAddress}')" title="取消分配">
@@ -519,7 +534,14 @@ function updateMailboxesPaginationUI() {
 // 上一页
 async function goToPrevPage() {
   if (currentPage > 1) {
-    await loadUsers(currentPage - 1);
+    if (els.prevPage) els.prevPage.disabled = true;
+    try {
+      await loadUsers(currentPage - 1);
+    } finally {
+      // loadUsers 会调用 updatePaginationUI，那里会处理按钮状态
+      // 但为了保险起见，如果加载失败，这里可以恢复
+      if (els.prevPage && currentPage > 1) els.prevPage.disabled = false;
+    }
   }
 }
 
@@ -527,14 +549,24 @@ async function goToPrevPage() {
 async function goToNextPage() {
   const totalPages = Math.ceil(totalUsers / pageSize);
   if (currentPage < totalPages) {
-    await loadUsers(currentPage + 1);
+    if (els.nextPage) els.nextPage.disabled = true;
+    try {
+      await loadUsers(currentPage + 1);
+    } finally {
+      if (els.nextPage && currentPage < totalPages) els.nextPage.disabled = false;
+    }
   }
 }
 
 // 邮箱上一页
 async function goToMailboxPrevPage() {
   if (currentMailboxPage > 1 && currentViewingUser) {
-    await loadUserMailboxes(currentViewingUser.userId, currentViewingUser.username, currentMailboxPage - 1);
+    if (els.mailboxesPrevPage) els.mailboxesPrevPage.disabled = true;
+    try {
+      await loadUserMailboxes(currentViewingUser.userId, currentViewingUser.username, currentMailboxPage - 1);
+    } finally {
+      if (els.mailboxesPrevPage && currentMailboxPage > 1) els.mailboxesPrevPage.disabled = false;
+    }
   }
 }
 
@@ -542,7 +574,12 @@ async function goToMailboxPrevPage() {
 async function goToMailboxNextPage() {
   const totalPages = Math.ceil(totalMailboxes / mailboxPageSize);
   if (currentMailboxPage < totalPages && currentViewingUser) {
-    await loadUserMailboxes(currentViewingUser.userId, currentViewingUser.username, currentMailboxPage + 1);
+    if (els.mailboxesNextPage) els.mailboxesNextPage.disabled = true;
+    try {
+      await loadUserMailboxes(currentViewingUser.userId, currentViewingUser.username, currentMailboxPage + 1);
+    } finally {
+      if (els.mailboxesNextPage && currentMailboxPage < totalPages) els.mailboxesNextPage.disabled = false;
+    }
   }
 }
 
@@ -832,8 +869,21 @@ function restoreButton(button){
 
 // 导航
 els.back.onclick = () => { 
+  // 防止重复点击
+  const now = Date.now();
+  if (isNavigating || (now - lastNavigateTime < 1000)) {
+    return;
+  }
+  isNavigating = true;
+  lastNavigateTime = now;
+  
   // 使用 location.href 而不是 replace，确保创建历史记录条目以支持前进后退
-  location.href = '/templates/loading.html?redirect=%2F&status=' + encodeURIComponent('正在返回首页…'); 
+  location.href = '/templates/loading.html?redirect=%2F&status=' + encodeURIComponent('正在返回邮箱…'); 
+  
+  // 安全重置导航状态（防止页面未跳转导致按钮永久失效）
+  navigationTimer = setTimeout(() => {
+    isNavigating = false;
+  }, 2000);
 };
 els.logout.onclick = async () => { 
   try{ fetch('/api/logout', { method:'POST', keepalive: true }); }catch{}
@@ -996,15 +1046,25 @@ document.addEventListener('mousedown', (e) => {
 if (els.prevPage) els.prevPage.onclick = goToPrevPage;
 if (els.nextPage) els.nextPage.onclick = goToNextPage;
 if (els.usersRefresh) els.usersRefresh.onclick = async () => {
-  await loadUsers();
-  await reloadCurrentUserMailboxes();
+  setButtonLoading(els.usersRefresh, '刷新中');
+  try {
+    await loadUsers();
+    await reloadCurrentUserMailboxes();
+  } finally {
+    restoreButton(els.usersRefresh);
+  }
 };
 
 // 邮箱分页按钮事件绑定
 if (els.mailboxesPrevPage) els.mailboxesPrevPage.onclick = goToMailboxPrevPage;
 if (els.mailboxesNextPage) els.mailboxesNextPage.onclick = goToMailboxNextPage;
 if (els.mailboxesRefresh) els.mailboxesRefresh.onclick = async () => {
-  await reloadCurrentUserMailboxes();
+  setButtonLoading(els.mailboxesRefresh, '刷新中');
+  try {
+    await reloadCurrentUserMailboxes();
+  } finally {
+    restoreButton(els.mailboxesRefresh);
+  }
 };
 
 // 重置导航状态的函数
@@ -1097,7 +1157,7 @@ window.selectMailboxAndGoToHomepage = function(address, event) {
     // 跨页面导航：等待toast播放完成后跳转
     navigationTimer = setTimeout(() => {
       navigationTimer = null;
-      window.location.href = '/#inbox';
+      window.location.href = '/templates/loading.html?redirect=%2F%23inbox&status=' + encodeURIComponent('正在跳转到邮箱…');
     }, 800);
     
     // 备用重置机制：3秒后强制重置状态，防止状态卡死
@@ -1114,5 +1174,4 @@ window.selectMailboxAndGoToHomepage = function(address, event) {
     }
   }
 };
-
 

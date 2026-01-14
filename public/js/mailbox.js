@@ -1,6 +1,5 @@
 /**
- * 邮箱用户专用页面逻辑
- * 简化版本，只包含邮件接收和查看功能
+ * 邮箱用户专用页面逻辑 - Enhanced
  */
 
 // 全局状态
@@ -10,7 +9,9 @@ let emails = [];
 let currentPage = 1;
 const pageSize = 20;
 let autoRefreshTimer = null;
+let progressTimer = null;
 let keyword = '';
+let selectedEmailId = null;
 
 // DOM 元素引用
 let elements = {};
@@ -18,6 +19,7 @@ let elements = {};
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
   initializeElements();
+  initializeTheme();
   initializeAuth();
   bindEvents();
 });
@@ -27,8 +29,12 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function initializeElements() {
   elements = {
-    // 基础元素
-    roleBadge: document.getElementById('role-badge'),
+    // 主题
+    themeToggle: document.getElementById('theme-toggle'),
+    iconSun: document.querySelector('.icon-sun'),
+    iconMoon: document.querySelector('.icon-moon'),
+
+    // 基础
     toast: document.getElementById('toast'),
     
     // 邮箱信息
@@ -37,50 +43,68 @@ function initializeElements() {
     refreshEmailsBtn: document.getElementById('refresh-emails'),
     
     // 邮件列表
+    emailListContainer: document.getElementById('email-list-container'),
     emailList: document.getElementById('email-list'),
-    emptyState: document.getElementById('empty-state'),
     listLoading: document.getElementById('list-loading'),
+    listEmpty: document.getElementById('list-empty'),
+    totalCount: document.getElementById('total-count'),
+    unreadBadge: document.getElementById('unread-badge'),
+    unreadCount: document.getElementById('unread-count'),
     
-    // 分页
-    listPager: document.getElementById('list-pager'),
-    prevPageBtn: document.getElementById('prev-page'),
-    nextPageBtn: document.getElementById('next-page'),
-    pageInfo: document.getElementById('page-info'),
+    // 详情视图 (Desktop)
+    detailEmpty: document.getElementById('detail-empty'),
+    detailContent: document.getElementById('detail-content'),
+    detailSubject: document.getElementById('detail-subject'),
+    detailFrom: document.getElementById('detail-from'),
+    detailDate: document.getElementById('detail-date'),
+    detailBody: document.getElementById('detail-body'),
+    detailAvatar: document.getElementById('detail-avatar'),
     
-    // 模态框
+    // 移动端详情模态框
     emailModal: document.getElementById('email-modal'),
-    modalSubject: document.getElementById('modal-subject'),
-    modalContent: document.getElementById('modal-content'),
     modalCloseBtn: document.getElementById('modal-close'),
+    modalDetailContainer: document.getElementById('modal-detail-container'),
     
-    // 确认模态框
-    confirmModal: document.getElementById('confirm-modal'),
-    confirmMessage: document.getElementById('confirm-message'),
-    confirmOkBtn: document.getElementById('confirm-ok'),
-    confirmCancelBtn: document.getElementById('confirm-cancel'),
-    confirmCloseBtn: document.getElementById('confirm-close'),
-    
-    // 密码修改模态框
+    // 密码修改
     passwordModal: document.getElementById('password-modal'),
     passwordForm: document.getElementById('password-form'),
-    currentPasswordInput: document.getElementById('current-password'),
-    newPasswordInput: document.getElementById('new-password'),
-    confirmPasswordInput: document.getElementById('confirm-password'),
     passwordClose: document.getElementById('password-close'),
     passwordCancel: document.getElementById('password-cancel'),
-    passwordSubmit: document.getElementById('password-submit'),
+    changePasswordBtn: document.getElementById('change-password'),
     
-    // 导航
+    // 导航/工具栏
     logoutBtn: document.getElementById('logout'),
-
-    // 工具栏
     autoRefresh: document.getElementById('auto-refresh'),
-    refreshInterval: document.getElementById('refresh-interval'),
+    progressBar: document.getElementById('auto-refresh-bar'),
     searchBox: document.getElementById('search-box'),
-    clearFilter: document.getElementById('clear-filter'),
-    unreadCount: document.getElementById('unread-count'),
-    totalCount: document.getElementById('total-count')
   };
+}
+
+/**
+ * 初始化主题
+ */
+function initializeTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateThemeIcon(savedTheme);
+  
+  elements.themeToggle?.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-theme');
+    const next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    updateThemeIcon(next);
+  });
+}
+
+function updateThemeIcon(theme) {
+  if (theme === 'dark') {
+    elements.iconMoon.classList.add('hidden');
+    elements.iconSun.classList.remove('hidden');
+  } else {
+    elements.iconMoon.classList.remove('hidden');
+    elements.iconSun.classList.add('hidden');
+  }
 }
 
 /**
@@ -91,13 +115,8 @@ async function initializeAuth() {
     const response = await fetch('/api/session');
     const data = await response.json();
     
-    if (!data.authenticated) {
-      redirectToLogin('请先登录');
-      return;
-    }
-    
-    if (data.role !== 'mailbox') {
-      redirectToLogin('只有邮箱用户可以访问此页面');
+    if (!data.authenticated || data.role !== 'mailbox') {
+      location.replace('/');
       return;
     }
     
@@ -105,11 +124,13 @@ async function initializeAuth() {
     currentMailbox = data.mailbox || data.username;
     
     // 更新UI
-    updateRoleBadge();
-    updateCurrentMailbox();
+    if(elements.currentMailbox) elements.currentMailbox.textContent = currentMailbox;
     
     // 加载邮件
     await loadEmails();
+    
+    // 启动自动刷新
+    startAutoRefresh();
     
   } catch (error) {
     console.error('认证检查失败:', error);
@@ -122,131 +143,116 @@ async function initializeAuth() {
  */
 function bindEvents() {
   // 复制邮箱地址
-  elements.copyMailboxBtn?.addEventListener('click', copyMailboxAddress);
+  elements.copyMailboxBtn?.addEventListener('click', () => {
+    if (!currentMailbox) return;
+    navigator.clipboard.writeText(currentMailbox).then(() => {
+      showToast('邮箱地址已复制', 'success');
+      // 简单的动画反馈
+      const originalText = elements.copyMailboxBtn.innerHTML;
+      elements.copyMailboxBtn.innerHTML = '<span>✓</span> 已复制';
+      setTimeout(() => elements.copyMailboxBtn.innerHTML = originalText, 2000);
+    });
+  });
   
   // 刷新邮件
-  elements.refreshEmailsBtn?.addEventListener('click', refreshEmails);
+  elements.refreshEmailsBtn?.addEventListener('click', () => {
+    loadEmails();
+    startAutoRefresh(); // 重置计时器
+  });
 
-  // 自动刷新
-  if (elements.autoRefresh && elements.refreshInterval){
-    const setupAuto = () => {
-      if (autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
-      if (elements.autoRefresh.checked){
-        const sec = Math.max(5, parseInt(elements.refreshInterval.value || '30', 10));
-        autoRefreshTimer = setInterval(() => refreshEmails(), sec * 1000);
-      }
-    };
-    elements.autoRefresh.addEventListener('change', setupAuto);
-    elements.refreshInterval.addEventListener('change', setupAuto);
-    
-    // 默认启用自动刷新，间隔10秒
-    elements.autoRefresh.checked = true;
-    elements.refreshInterval.value = '10';
-    setupAuto();
-  }
+  // 自动刷新开关
+  elements.autoRefresh?.addEventListener('change', (e) => {
+    if (e.target.checked) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+  });
 
-  // 搜索/筛选
-  if (elements.searchBox){
-    elements.searchBox.addEventListener('input', () => { keyword = (elements.searchBox.value||'').trim().toLowerCase(); renderEmailList(); });
-  }
-  elements.clearFilter?.addEventListener('click', () => { keyword=''; if(elements.searchBox) elements.searchBox.value=''; renderEmailList(); });
+  // 搜索
+  elements.searchBox?.addEventListener('input', (e) => {
+    keyword = e.target.value.trim().toLowerCase();
+    renderEmailList();
+  });
   
   // 退出登录
-  elements.logoutBtn?.addEventListener('click', logout);
-  
-  // 修改密码
-  document.getElementById('change-password')?.addEventListener('click', showPasswordModal);
-  
-  // 模态框关闭
-  elements.modalCloseBtn?.addEventListener('click', closeEmailModal);
-  elements.confirmCloseBtn?.addEventListener('click', closeConfirmModal);
-  elements.confirmCancelBtn?.addEventListener('click', closeConfirmModal);
-  elements.passwordClose?.addEventListener('click', closePasswordModal);
-  elements.passwordCancel?.addEventListener('click', closePasswordModal);
-  
-  // 密码表单提交
-  elements.passwordForm?.addEventListener('submit', handlePasswordChange);
-  
-  // 分页
-  elements.prevPageBtn?.addEventListener('click', () => changePage(currentPage - 1));
-  elements.nextPageBtn?.addEventListener('click', () => changePage(currentPage + 1));
-  
-  // 点击模态框背景关闭
-  elements.emailModal?.addEventListener('click', (e) => {
-    if (e.target === elements.emailModal) {
-      closeEmailModal();
+  elements.logoutBtn?.addEventListener('click', async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST' });
+      location.replace('/');
+    } catch (e) {
+      location.replace('/');
     }
   });
   
-  elements.confirmModal?.addEventListener('click', (e) => {
-    if (e.target === elements.confirmModal) {
-      closeConfirmModal();
-    }
+  // 修改密码模态框
+  elements.changePasswordBtn?.addEventListener('click', () => {
+    elements.passwordModal.classList.add('active');
   });
   
-  elements.passwordModal?.addEventListener('click', (e) => {
-    if (e.target === elements.passwordModal) {
-      closePasswordModal();
-    }
+  [elements.passwordClose, elements.passwordCancel].forEach(btn => {
+    btn?.addEventListener('click', () => {
+      elements.passwordModal.classList.remove('active');
+    });
   });
-}
 
-/**
- * 更新角色徽章
- */
-function updateRoleBadge() {
-  if (elements.roleBadge && currentUser) {
-    elements.roleBadge.textContent = '邮箱用户';
-    elements.roleBadge.title = '邮箱用户';
-  }
-}
-
-/**
- * 更新当前邮箱显示
- */
-function updateCurrentMailbox() {
-  if (elements.currentMailbox && currentMailbox) {
-    elements.currentMailbox.textContent = currentMailbox;
-  }
+  elements.passwordForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const currentPass = document.getElementById('current-password').value;
+    const newPass = document.getElementById('new-password').value;
+    const confirmPass = document.getElementById('confirm-password').value;
+    
+    if (newPass !== confirmPass) {
+      showToast('两次输入的新密码不一致', 'error');
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: currentPass, newPassword: newPass })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('密码修改成功', 'success');
+        elements.passwordModal.classList.remove('active');
+        elements.passwordForm.reset();
+      } else {
+        showToast(data.error || '修改失败', 'error');
+      }
+    } catch (e) {
+      showToast('网络错误', 'error');
+    }
+  });
+  
+  // 移动端详情模态框关闭
+  elements.modalCloseBtn?.addEventListener('click', () => {
+    elements.emailModal.classList.remove('active');
+  });
 }
 
 /**
  * 加载邮件列表
  */
-async function loadEmails(page = 1) {
-  if (!currentMailbox) return;
+async function loadEmails() {
+  // 仅在首次或列表为空时显示加载中
+  if (emails.length === 0) {
+    showListState('loading');
+  }
   
   try {
-    showLoading(true);
+    const res = await fetch(`/api/emails?page=${currentPage}&pageSize=${pageSize}`);
+    const data = await res.json();
     
-    const response = await fetch(`/api/emails?mailbox=${encodeURIComponent(currentMailbox)}&page=${page}&limit=${pageSize}`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    const newList = Array.isArray(data) ? data : [];
-    const canIncremental = page === 1 && elements.emailList && elements.emailList.children && elements.emailList.children.length > 0 && !keyword;
-    if (canIncremental){
-      applyIncrementalList(newList);
-      emails = newList;
-    } else {
-      emails = newList;
+    if (data.success) {
+      emails = data.emails || [];
       renderEmailList();
+      updateStats();
     }
-    currentPage = page;
-    
-    updatePagination();
-    updateCounters();
-    
   } catch (error) {
-    console.error('加载邮件失败:', error);
-    showToast('加载邮件失败: ' + error.message, 'error');
-    emails = [];
-    renderEmailList();
-  } finally {
-    showLoading(false);
+    console.error('加载邮件失败', error);
+    showToast('加载邮件失败', 'error');
   }
 }
 
@@ -254,646 +260,201 @@ async function loadEmails(page = 1) {
  * 渲染邮件列表
  */
 function renderEmailList() {
-  if (!elements.emailList) return;
+  const listEl = elements.emailList;
+  if (!listEl) return;
   
-  elements.emailList.innerHTML = '';
+  listEl.innerHTML = '';
   
-  const filtered = keyword ? emails.filter(e => {
-    const s = (String(e.sender||'') + ' ' + String(e.subject||'')).toLowerCase();
-    return s.includes(keyword);
-  }) : emails;
-
-  if (filtered.length === 0) {
-    elements.emptyState.style.display = 'flex';
+  let filteredEmails = emails;
+  if (keyword) {
+    filteredEmails = emails.filter(e => 
+      (e.from && e.from.toLowerCase().includes(keyword)) || 
+      (e.subject && e.subject.toLowerCase().includes(keyword))
+    );
+  }
+  
+  if (filteredEmails.length === 0) {
+    showListState('empty');
     return;
   }
   
-  elements.emptyState.style.display = 'none';
+  showListState('list');
   
-  filtered.forEach(email => {
-    const emailItem = createEmailItem(email);
-    elements.emailList.appendChild(emailItem);
+  filteredEmails.forEach(email => {
+    const el = document.createElement('div');
+    el.className = `email-item ${selectedEmailId === email.id ? 'active' : ''}`;
+    el.onclick = () => selectEmail(email);
+    
+    // 头像颜色
+    const avatarColor = getAvatarColor(email.from);
+    const initials = getInitials(email.from);
+    const dateStr = formatTime(email.created_at);
+    
+    el.innerHTML = `
+      <div class="email-avatar" style="background: ${avatarColor}">${initials}</div>
+      <div class="email-preview">
+        <div class="email-sender">${escapeHtml(email.from)}</div>
+        <div class="email-subject">${escapeHtml(email.subject || '无主题')}</div>
+        <div class="email-meta">
+          <span>${dateStr}</span>
+        </div>
+      </div>
+    `;
+    
+    listEl.appendChild(el);
   });
 }
 
 /**
- * 创建邮件项元素
+ * 选择邮件
  */
-function createEmailItem(email) {
-  const item = document.createElement('div');
-  item.className = 'email-item clickable';
-  item.onclick = () => viewEmailDetail(email.id);
-  try{ item.dataset.id = String(email.id); }catch(_){ }
-
-  // 统一与普通用户列表的预览与验证码提取逻辑
-  const raw = (email.preview || email.content || email.html_content || '').toString();
-  const plain = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  const listCode = (email.verification_code || '').toString().trim() || extractCode(`${email.subject || ''} ${plain}`);
-  let preview = '';
-  if (plain) {
-    preview = plain;
-    if (listCode) preview = `验证码: ${listCode} | ${preview}`;
-    preview = preview.slice(0, 20);
+function selectEmail(email) {
+  selectedEmailId = email.id;
+  
+  // 标记选中状态
+  const items = document.querySelectorAll('.email-item');
+  items.forEach(el => el.classList.remove('active'));
+  // 重新渲染列表以更新选中态（稍微低效但简单）
+  renderEmailList(); 
+  
+  const isMobile = window.innerWidth <= 768;
+  
+  if (isMobile) {
+    // 移动端：打开模态框
+    renderDetailToContainer(elements.modalDetailContainer, email);
+    elements.emailModal.classList.add('active');
+  } else {
+    // 桌面端：右侧显示
+    elements.detailEmpty.classList.add('hidden');
+    elements.detailContent.classList.remove('hidden');
+    
+    elements.detailSubject.textContent = email.subject || '无主题';
+    elements.detailFrom.textContent = email.from;
+    elements.detailDate.textContent = new Date(email.created_at).toLocaleString();
+    
+    const avatarColor = getAvatarColor(email.from);
+    elements.detailAvatar.style.background = avatarColor;
+    elements.detailAvatar.textContent = getInitials(email.from);
+    
+    elements.detailBody.innerHTML = email.html || email.text || '<p class="text-muted">无内容</p>';
   }
-  const hasContent = preview.length > 0;
-  const timeText = formatTime(email.received_at);
-  const senderText = escapeHtml(email.sender || '');
-  const subjectText = escapeHtml(email.subject || '(无主题)');
-  const previewText = escapeHtml(preview);
+}
 
-  const isPinned = !!email.is_pinned;
-  const pinIcon = isPinned ? '⭐' : '☆';
-  const pinTitle = isPinned ? '取消重要标记' : '标记为重要';
-  const pinClass = isPinned ? 'btn-pin active' : 'btn-pin';
-
-  item.innerHTML = `
-    <div class="email-meta">
-      <span class="meta-from"><span class="meta-label">发件人</span><span class="meta-from-text">${senderText}</span></span>
-      <span class="email-time"><span class="time-icon">🕐</span>${timeText}</span>
-    </div>
-    <div class="email-content">
-      <div class="email-main">
-        <div class="email-line">
-          <span class="label-chip">主题</span>
-          <span class="value-text subject">${subjectText}</span>
-        </div>
-        <div class="email-line">
-          <span class="label-chip">内容</span>
-          ${hasContent ? `<span class="email-preview value-text">${previewText}</span>` : '<span class="email-preview value-text" style="color:#94a3b8">(暂无预览)</span>'}
+function renderDetailToContainer(container, email) {
+  if (!container) return;
+  
+  const avatarColor = getAvatarColor(email.from);
+  const initials = getInitials(email.from);
+  
+  container.innerHTML = `
+    <div class="email-detail-header">
+      <h2 class="detail-subject">${escapeHtml(email.subject || '无主题')}</h2>
+      <div class="detail-meta">
+        <div class="email-avatar" style="background: ${avatarColor}">${initials}</div>
+        <div class="detail-sender-info">
+          <div class="detail-from">${escapeHtml(email.from)}</div>
+          <div class="detail-time">${new Date(email.created_at).toLocaleString()}</div>
         </div>
       </div>
-      <div class="email-actions">
-        <button class="btn btn-secondary btn-sm ${pinClass}" onclick="togglePin(event, ${email.id}, ${!isPinned})" title="${pinTitle}" style="${isPinned ? 'color: #f59e0b;' : ''}">
-          <span class="btn-icon">${pinIcon}</span>
-        </button>
-        <button class="btn btn-secondary btn-sm" data-code="${listCode || ''}" onclick="copyFromList(event, ${email.id})" title="复制内容或验证码">
-          <span class="btn-icon">📋</span>
-        </button>
-      </div>
+    </div>
+    <div class="email-detail-body">
+      ${email.html || email.text || '<p class="text-muted">无内容</p>'}
     </div>
   `;
-
-  return item;
 }
 
 /**
- * 增量更新列表：仅追加新邮件到顶部，并移除不在第一页的数据
+ * 辅助功能
  */
-function applyIncrementalList(newList){
-  try{
-    const container = elements.emailList;
-    if (!container){ return; }
-    const existingChildren = Array.from(container.children || []);
-    const existingIds = new Set(existingChildren.map(el => Number(el.dataset && el.dataset.id)));
-    const newIds = new Set(newList.map(e => e.id));
-    // 1) 预先构建需要插入的新节点（保持从旧到新插入到顶部的顺序）
-    const toInsert = [];
-    for (let i = newList.length - 1; i >= 0; i--){
-      const e = newList[i];
-      if (!existingIds.has(e.id)){
-        toInsert.push(createEmailItem(e));
-      }
-    }
-    // 插入到顶部（保持新列表顺序）
-    for (let i = toInsert.length - 1; i >= 0; i--){
-      const node = toInsert[i];
-      if (container.firstChild){ container.insertBefore(node, container.firstChild); }
-      else { container.appendChild(node); }
-    }
-    // 2) 移除不在新列表中的旧节点（通常是底部旧邮件被顶出）
-    existingChildren.forEach(el => {
-      const id = Number(el.dataset && el.dataset.id);
-      if (!newIds.has(id)){
-        el.remove();
-      }
-    });
-    // 3) 空态处理
-    if (elements.emptyState){ elements.emptyState.style.display = container.children.length ? 'none' : 'flex'; }
-  }catch(_){
-    // 发生异常时回退到完整渲染
-    renderEmailList();
-  }
+function showListState(state) {
+  elements.listLoading.style.display = state === 'loading' ? 'flex' : 'none';
+  elements.listEmpty.style.display = state === 'empty' ? 'flex' : 'none';
+  elements.emailList.style.display = state === 'list' ? 'block' : 'none';
 }
 
-/**
- * 查看邮件详情
- */
-async function viewEmailDetail(emailId) {
-  try {
-    const response = await fetch(`/api/email/${emailId}`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const email = await response.json();
-    
-    // 标记为已读
-    if (!email.is_read) {
-      await markAsRead(emailId);
-    }
-    
-    showEmailModal(email);
-    
-  } catch (error) {
-    console.error('获取邮件详情失败:', error);
-    showToast('获取邮件详情失败: ' + error.message, 'error');
-  }
+function updateStats() {
+  if (elements.totalCount) elements.totalCount.textContent = `${emails.length} 封邮件`;
+  // 假设未读逻辑（目前简单处理，实际可能需要后端支持状态）
+  // 这里暂时隐藏未读数，除非有明确的已读状态字段
+  if (elements.unreadBadge) elements.unreadBadge.style.display = 'none';
 }
 
-/**
- * 显示邮件详情模态框
- */
-function showEmailModal(email) {
-  if (!elements.emailModal || !elements.modalSubject || !elements.modalContent) return;
-
-  // 标题
-  elements.modalSubject.innerHTML = `
-    <span class="modal-icon">📧</span>
-    <span>${escapeHtml(email.subject || '(无主题)')}</span>
-  `;
-
-  // 元信息与动作条采用普通用户样式
-  const rawHtml = (email.html_content || '').toString();
-  const rawText = (email.content || '').toString();
-  const plainForCode = `${email.subject || ''} ` + (rawHtml || rawText).replace(/<[^>]+>/g, ' ').replace(/\s+/g,' ').trim();
-  const code = (email.verification_code || '').toString().trim() || extractCode(plainForCode);
-  const toLine = currentMailbox || '';
-  const timeLine = formatTime(email.received_at);
-  const subjLine = escapeHtml(email.subject || '');
-
-  elements.modalContent.innerHTML = `
-    <div class="email-meta-inline" style="margin:4px 0 8px 0;color:#334155;font-size:14px">
-      <span>发件人：${escapeHtml(email.sender || '')}</span>
-      ${toLine ? `<span style=\"margin-left:12px\">收件人：${escapeHtml(toLine)}</span>` : ''}
-      ${timeLine ? `<span style=\"margin-left:12px\">时间：${timeLine}</span>` : ''}
-      ${subjLine ? `<span style=\"margin-left:12px\">主题：${subjLine}</span>` : ''}
-    </div>
-    <div class="email-actions-bar">
-      <button class="btn btn-secondary btn-sm" onclick="copyEmailAllText(this)">
-        <span class="btn-icon">📋</span>
-        <span>复制内容</span>
-      </button>
-      ${code ? `
-        <button class=\"btn btn-primary btn-sm\" onclick=\"copyCodeInModal('${code}', this)\">
-          <span class=\"btn-icon\">🔐</span>
-          <span>复制验证码</span>
-        </button>
-      ` : ''}
-      ${email.download ? `<a class="btn btn-ghost btn-sm" href="${email.download}" download><span class="btn-icon">⬇️</span><span>下载原始邮件</span></a>` : ''}
-    </div>
-    <div id="email-render-host"></div>
-  `;
-
-  const host = document.getElementById('email-render-host');
-  if (rawHtml.trim()){
-    const iframe = document.createElement('iframe');
-    iframe.style.width = '100%';
-    iframe.style.border = '0';
-    iframe.style.minHeight = '60vh';
-    host.appendChild(iframe);
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (doc){
-      doc.open();
-      doc.write(rawHtml);
-      doc.close();
-      const resize = () => {
-        try{
-          const h = Math.max(doc.body?.scrollHeight || 0, doc.documentElement?.scrollHeight || 0, 400);
-          iframe.style.height = h + 'px';
-        }catch(_){ }
-      };
-      iframe.onload = resize;
-      setTimeout(resize, 60);
-    }
-  } else if (rawText.trim()){
-    const pre = document.createElement('pre');
-    pre.style.whiteSpace = 'pre-wrap';
-    pre.style.wordBreak = 'break-word';
-    pre.textContent = rawText;
-    host.appendChild(pre);
-  } else {
-    host.innerHTML = '<div class="email-no-content">📭 此邮件暂无内容</div>';
-  }
-
-  elements.emailModal.classList.add('show');
-}
-
-/**
- * 关闭邮件详情模态框
- */
-function closeEmailModal() {
-  if (elements.emailModal) {
-    elements.emailModal.classList.remove('show');
-  }
-}
-
-/**
- * 更新未读/总数
- */
-function updateCounters(){
-  try{
-    const total = emails.length;
-    const unread = emails.filter(e => !e.is_read).length;
-    if (elements.totalCount) elements.totalCount.textContent = String(total);
-    if (elements.unreadCount) elements.unreadCount.textContent = String(unread);
-  }catch(_){ }
-}
-
-/**
- * 标记邮件为已读
- */
-async function markAsRead(emailId) {
-  try {
-    await fetch(`/api/email/${emailId}/read`, { method: 'POST' });
-    
-    // 更新本地状态
-    const email = emails.find(e => e.id === emailId);
-    if (email) {
-      email.is_read = 1;
-      renderEmailList();
-    }
-    
-  } catch (error) {
-    console.error('标记已读失败:', error);
-  }
-}
-
-/**
- * 删除邮件
- */
-async function deleteEmail(emailId) {
-  showConfirmModal(
-    '确定要删除这封邮件吗？删除后无法恢复。',
-    async () => {
-      try {
-        const response = await fetch(`/api/email/${emailId}`, { method: 'DELETE' });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        showToast('邮件已删除', 'success');
-        
-        // 从列表中移除
-        emails = emails.filter(e => e.id !== emailId);
-        renderEmailList();
-        
-      } catch (error) {
-        console.error('删除邮件失败:', error);
-        showToast('删除邮件失败: ' + error.message, 'error');
-      }
-    }
-  );
-}
-
-/**
- * 复制邮箱地址
- */
-async function copyMailboxAddress() {
-  if (!currentMailbox) return;
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (!elements.autoRefresh?.checked) return;
   
-  try {
-    await navigator.clipboard.writeText(currentMailbox);
-    showToast('邮箱地址已复制到剪贴板', 'success');
-  } catch (error) {
-    // 降级方案
-    const textArea = document.createElement('textarea');
-    textArea.value = currentMailbox;
-    document.body.appendChild(textArea);
-    textArea.select();
-    try {
-      document.execCommand('copy');
-      showToast('邮箱地址已复制到剪贴板', 'success');
-    } catch (e) {
-      showToast('复制失败，请手动复制', 'error');
-    }
-    document.body.removeChild(textArea);
-  }
-}
-
-/**
- * 刷新邮件
- */
-async function refreshEmails() {
-  await loadEmails(currentPage);
-  showToast('邮件已刷新', 'success');
-}
-
-/**
- * 切换页面
- */
-function changePage(page) {
-  if (page < 1) return;
-  loadEmails(page);
-}
-
-/**
- * 更新分页信息
- */
-function updatePagination() {
-  if (!elements.listPager) return;
+  const interval = 10000; // 10秒
+  let progress = 0;
+  const step = 100 / (interval / 100);
   
-  const hasEmails = emails.length > 0;
-  const hasMorePages = emails.length >= pageSize;
-  
-  if (hasEmails && (currentPage > 1 || hasMorePages)) {
-    elements.listPager.style.display = 'flex';
+  // 进度条动画
+  progressTimer = setInterval(() => {
+    progress += step;
+    if (elements.progressBar) elements.progressBar.style.width = `${Math.min(progress, 100)}%`;
     
-    if (elements.prevPageBtn) {
-      elements.prevPageBtn.disabled = currentPage <= 1;
+    if (progress >= 100) {
+      loadEmails();
+      progress = 0;
     }
-    
-    if (elements.nextPageBtn) {
-      elements.nextPageBtn.disabled = emails.length < pageSize;
-    }
-    
-    if (elements.pageInfo) {
-      elements.pageInfo.textContent = `第 ${currentPage} 页`;
-    }
-  } else {
-    elements.listPager.style.display = 'none';
-  }
-}
-
-/**
- * 退出登录
- */
-async function logout() {
-  try {
-    await fetch('/api/logout', { method: 'POST' });
-    redirectToLogin('已退出登录');
-  } catch (error) {
-    console.error('退出登录失败:', error);
-    redirectToLogin('退出登录');
-  }
-}
-
-/**
- * 重定向到登录页面
- */
-function redirectToLogin(message) {
-  const url = message ? `/html/login.html?message=${encodeURIComponent(message)}` : '/html/login.html';
-  window.location.href = url;
-}
-
-/**
- * 显示确认模态框
- */
-function showConfirmModal(message, onConfirm) {
-  if (!elements.confirmModal || !elements.confirmMessage || !elements.confirmOkBtn) return;
+  }, 100);
   
-  elements.confirmMessage.textContent = message;
-  elements.confirmOkBtn.onclick = () => {
-    closeConfirmModal();
-    if (onConfirm) onConfirm();
-  };
+  // 实际的定时器由 progressTimer 控制循环调用 loadEmails
+}
+
+function stopAutoRefresh() {
+  if (progressTimer) clearInterval(progressTimer);
+  progressTimer = null;
+  if (elements.progressBar) elements.progressBar.style.width = '0%';
+}
+
+// 颜色生成器
+function getAvatarColor(name) {
+  const colors = [
+    '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981',
+    '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e'
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  // 尝试获取名称部分 (e.g. "Google <no-reply@google.com>")
+  const match = name.match(/^"?([^"<@]+)"?/);
+  const cleanName = match ? match[1].trim() : name;
+  return cleanName.charAt(0).toUpperCase();
+}
+
+function formatTime(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
   
-  elements.confirmModal.classList.add('show');
+  if (isToday) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
 
-/**
- * 关闭确认模态框
- */
-function closeConfirmModal() {
-  if (elements.confirmModal) {
-    elements.confirmModal.classList.remove('show');
-  }
-}
-
-/**
- * 显示/隐藏加载状态
- */
-function showLoading(show) {
-  if (elements.listLoading) {
-    elements.listLoading.style.display = show ? 'flex' : 'none';
-  }
-}
-
-/**
- * showToast 函数已由 toast-utils.js 统一提供
- */
-
-/**
- * 显示修改密码模态框
- */
-function showPasswordModal() {
-  if (elements.passwordModal) {
-    elements.passwordModal.style.display = 'flex';
-    elements.currentPasswordInput?.focus();
-  }
-}
-
-/**
- * 关闭修改密码模态框
- */
-function closePasswordModal() {
-  if (elements.passwordModal) {
-    elements.passwordModal.style.display = 'none';
-    // 清空表单
-    if (elements.passwordForm) {
-      elements.passwordForm.reset();
-    }
-  }
-}
-
-/**
- * 处理密码修改
- */
-async function handlePasswordChange(e) {
-  e.preventDefault();
-  
-  const currentPassword = elements.currentPasswordInput?.value?.trim();
-  const newPassword = elements.newPasswordInput?.value?.trim();
-  const confirmPassword = elements.confirmPasswordInput?.value?.trim();
-  
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    showToast('请填写所有字段', 'error');
-    return;
-  }
-  
-  if (newPassword.length < 6) {
-    showToast('新密码长度至少6位', 'error');
-    return;
-  }
-  
-  if (newPassword !== confirmPassword) {
-    showToast('两次输入的新密码不一致', 'error');
-    return;
-  }
-  
-  try {
-    showLoading(true);
-    
-    const response = await fetch('/api/mailbox/password', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        currentPassword,
-        newPassword
-      })
-    });
-    
-    const result = await response.json();
-    
-    if (response.ok && result.success) {
-      showToast('密码修改成功', 'success');
-      closePasswordModal();
-    } else {
-      showToast(result.message || '密码修改失败', 'error');
-    }
-  } catch (error) {
-    console.error('修改密码失败:', error);
-    showToast('网络错误，请重试', 'error');
-  } finally {
-    showLoading(false);
-  }
-}
-
-/**
- * 格式化时间
- */
-function parseUtcToDate(timeStr){
-  // 兼容 D1 返回的 "YYYY-MM-DD HH:MM:SS"（UTC）
-  if (!timeStr) return null;
-  try{
-    const iso = String(timeStr).replace(' ', 'T');
-    return new Date(iso + 'Z');
-  }catch(_){ return null; }
-}
-
-function formatTime(timeStr) {
-  if (!timeStr) return '未知时间';
-  
-  try {
-    // 将数据库UTC时间转换为正确时刻
-    const date = parseUtcToDate(timeStr) || new Date(timeStr);
-    const now = new Date();
-    const diff = now - date;
-    
-    if (diff < 60000) { // 小于1分钟
-      return '刚刚';
-    } else if (diff < 3600000) { // 小于1小时
-      return Math.floor(diff / 60000) + '分钟前';
-    } else if (diff < 86400000) { // 小于1天
-      return Math.floor(diff / 3600000) + '小时前';
-    } else if (diff < 7 * 86400000) { // 小于7天
-      return Math.floor(diff / 86400000) + '天前';
-    } else {
-      // 超7天显示具体时间，固定东八区
-      return new Intl.DateTimeFormat('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        hour12: false,
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      }).format(date);
-    }
-  } catch (error) {
-    return '时间格式错误';
-  }
-}
-
-/**
- * HTML转义
- */
 function escapeHtml(text) {
-  if (typeof text !== 'string') return '';
-  
+  if (!text) return '';
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-// 暴露全局函数
-window.viewEmailDetail = viewEmailDetail;
-window.deleteEmail = deleteEmail;
-window.togglePin = togglePin;
-
-/**
- * 切换邮件重要标记
- */
-async function togglePin(event, id, newState) {
-  if(event) event.stopPropagation();
-  try {
-    const res = await fetch(`/api/emails/${id}/pin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_pinned: newState })
-    });
-    if (res.ok) {
-      showToast(newState ? '已标记为重要' : '已取消重要标记', 'success');
-      // 更新本地数据并重绘
-      const idx = emails.findIndex(e => e.id === id);
-      if (idx > -1) { 
-        emails[idx].is_pinned = newState ? 1 : 0; 
-        renderEmailList();
-      }
-    } else {
-      showToast('操作失败', 'error');
-    }
-  } catch (e) {
-    console.error(e);
-    showToast('网络错误', 'error');
+function showToast(message, type = 'info') {
+  // 复用 toast-utils.js 或自定义
+  if (window.ToastUtils) {
+    window.ToastUtils.show(message, type);
+  } else {
+    // Fallback
+    const toast = elements.toast;
+    toast.textContent = message;
+    toast.className = `toast toast-${type} show`;
+    setTimeout(() => toast.classList.remove('show'), 3000);
   }
 }
-
-/**
- * 从文本中提取验证码/激活码
- */
-function extractCode(text){
-  if (!text) return '';
-  const keywords = '(?:验证码|校验码|激活码|one[-\\s]?time\\s+code|verification\\s+code|security\\s+code|two[-\\s]?factor|2fa|otp|login\\s+code|code)';
-  const notFollowAlnum = '(?![0-9A-Za-z])';
-  let m = text.match(new RegExp(
-    keywords + "[^0-9A-Za-z]{0,20}(?:is(?:\\s*[:：])?|[:：]|为|是)?[^0-9A-Za-z]{0,10}(\\d{4,8})" + notFollowAlnum,
-    'i'
-  ));
-  if (m) return m[1];
-  m = text.match(new RegExp(
-    keywords + "[^0-9A-Za-z]{0,20}(?:is(?:\\s*[:：])?|[:：]|为|是)?[^0-9A-Za-z]{0,10}((?:\\d[ \\t-]){3,7}\\d)",
-    'i'
-  ));
-  if (m){ const digits = m[1].replace(/\\D/g,''); if (digits.length>=4 && digits.length<=8) return digits; }
-  m = text.match(new RegExp(
-    keywords + "[^0-9A-Za-z]{0,40}((?=[0-9A-Za-z]*\\d)[0-9A-Za-z]{4,8})" + notFollowAlnum,
-    'i'
-  ));
-  if (m) return m[1];
-  m = text.match(/(?<!\d)(\d{6})(?!\d)/);
-  if (m) return m[1];
-  m = text.match(/(\d(?:[ \t-]\d){5,7})/);
-  if (m){ const digits = m[1].replace(/\D/g,''); if (digits.length>=4 && digits.length<=8) return digits; }
-  return '';
-}
-
-/**
- * 列表复制：优先复制已提取验证码，否则拉取详情复制正文
- */
-window.copyFromList = async function(ev, id){
-  try{
-    if (ev && ev.stopPropagation) ev.stopPropagation();
-    const btn = ev && (ev.currentTarget || ev.target);
-    const code = (btn && btn.dataset ? String(btn.dataset.code || '').trim() : '');
-    if (code){
-      await navigator.clipboard.writeText(code);
-      try{ showToast('已复制验证码：' + code, 'success'); }catch(_){ }
-      return false;
-    }
-    const r = await fetch(`/api/email/${id}`);
-    if (!r.ok) throw new Error('网络错误');
-    const email = await r.json();
-    const raw = (email.html_content || email.content || '').toString();
-    const txt = `${email.subject || ''} ` + raw.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-    const fallback = extractCode(txt) || txt;
-    await navigator.clipboard.writeText(fallback);
-    try{ showToast(fallback && fallback.length<=12 ? '已复制验证码/激活码：' + fallback : '已复制邮件内容', 'success'); }catch(_){ }
-    return false;
-  }catch(_){ showToast('复制失败', 'warn'); return false; }
-};
