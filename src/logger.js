@@ -19,7 +19,7 @@ const CURRENT_LOG_LEVEL = LOG_LEVELS.WARN;
  * 生成日志ID（用于追踪请求链）
  * @returns {string} 唯一的日志ID
  */
-function generateLogId() {
+export function generateLogId() {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 8);
   return `${timestamp}-${random}`;
@@ -276,5 +276,6 @@ export default {
   performance,
   requestLog,
   dbLog,
-  emailLog
+  emailLog,
+  generateLogId
 };

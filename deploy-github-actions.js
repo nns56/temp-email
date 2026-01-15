@@ -153,7 +153,7 @@ try {
 
   // 6. 部署到 Cloudflare Workers
   console.log('☁️ 部署到 Cloudflare Workers...');
-  execSync('npx wrangler deploy', { stdio: 'inherit' });
+  execSync('npx wrangler deploy --env=""', { stdio: 'inherit' });
   
   console.log('✅ 部署完成！');
 } catch (error) {
