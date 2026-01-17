@@ -33,7 +33,7 @@
   --radius-lg: 14px;
   --radius-full: 9999px;
   
-  --header-height: 64px;
+  --header-height: 72px; /* Increased header height for breathing room */
 }
 
 /* Dark Mode Variables - Zinc Theme */
@@ -105,6 +105,7 @@ body {
   flex-shrink: 0;
   z-index: 50;
   backdrop-filter: none !important; /* Remove blur for cleaner look */
+  box-shadow: none !important; /* Remove shadow for flat look */
 }
 
 /* Fix for email detail header contrast */
@@ -193,9 +194,10 @@ body {
 }
 
 .id-card-address {
-  font-family: 'SF Mono', 'Monaco', monospace;
+  font-family: 'SF Mono', 'Roboto Mono', 'Monaco', monospace; /* Enhanced Monospace Stack */
   font-size: 24px;
   font-weight: 700;
+  letter-spacing: -0.5px; /* Tighter tracking for numbers */
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
   display: flex;
   align-items: center;
