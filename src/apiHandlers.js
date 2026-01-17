@@ -1337,9 +1337,10 @@ export async function handleApiRequest(request, db, mailDomains, options = { res
   if (path === '/api/admin/stats/domains' && request.method === 'GET') {
     if (!isStrictAdmin()) { return new Response('Forbidden', { status: 403 }); }
     try {
-      const { getDomainStats } = await import('./database.js');
+      const { getDomainStats, getDomainUsageStats } = await import('./database.js');
       const stats = await getDomainStats(db);
-      return Response.json(stats);
+      const list = await getDomainUsageStats(db);
+      return Response.json({ ...stats, list });
     } catch (e) {
       logger.error({ logId, action: 'get_domain_stats', error: e.message });
       return new Response('查询失败', { status: 500 });

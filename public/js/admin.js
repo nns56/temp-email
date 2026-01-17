@@ -56,6 +56,7 @@ const els = {
   tgToken: document.getElementById('tg-token'),
   tgWebhook: document.getElementById('tg-webhook'),
   tgExtra: document.getElementById('tg-extra'),
+  domainUsageBody: document.getElementById('domain-usage-body'),
   
   // 检查必要的DOM元素是否存在
   checkRequiredElements() {
@@ -540,6 +541,68 @@ function updateMailboxesPaginationUI() {
   }
   if (els.mailboxesNextPage) {
     els.mailboxesNextPage.disabled = currentMailboxPage >= totalPages;
+  }
+}
+
+async function loadDomainUsage() {
+  if (!els.domainUsageBody) {return;}
+  try {
+    els.domainUsageBody.textContent = '加载中…';
+    const r = await api('/api/admin/stats/domains');
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      els.domainUsageBody.textContent = '加载失败：' + (t || r.status);
+      return;
+    }
+    const data = await r.json();
+    const list = Array.isArray(data.list) ? data.list : [];
+    if (!list.length) {
+      els.domainUsageBody.textContent = '暂无数据';
+      return;
+    }
+    const rows = list.map(function(item) {
+      const d = item.domain || '';
+      const c = Number(item.mailbox_count || 0);
+      const mc = Number(item.message_count || 0);
+      const active = Number(item.is_active || 0) === 1;
+      const statusText = active ? '活跃' : '停用';
+      const statusClass = active ? 'status-ok' : 'status-warn';
+      return (
+        '<tr>' +
+          '<td style="padding:4px 6px;font-family:monospace;">' + escapeHtml(d) + '</td>' +
+          '<td style="padding:4px 6px;text-align:right;">' + c + '</td>' +
+          '<td style="padding:4px 6px;text-align:right;">' + mc + '</td>' +
+          '<td style="padding:4px 6px;text-align:center;"><span class="' + statusClass + '">' + statusText + '</span></td>' +
+        '</tr>'
+      );
+    }).join('');
+    const total = Number(data.total || 0);
+    const active = Number(data.active || 0);
+    const inactive = Number(data.inactive || 0);
+    const summary = (
+      '<div style="margin-bottom:8px;color:#64748b;">' +
+        '活跃域名 ' + active + ' 个，已失效 ' + inactive + ' 个，总计 ' + total + ' 个' +
+      '</div>'
+    );
+    els.domainUsageBody.innerHTML =
+      summary +
+      '<div style="max-height:220px;overflow:auto;border:1px solid #e2e8f0;border-radius:6px;">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:12px;">' +
+          '<thead>' +
+            '<tr style="background:#f8fafc;">' +
+              '<th style="padding:4px 6px;text-align:left;">域名</th>' +
+              '<th style="padding:4px 6px;text-align:right;">邮箱数量</th>' +
+              '<th style="padding:4px 6px;text-align:right;">邮件数量</th>' +
+              '<th style="padding:4px 6px;text-align:center;">状态</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>' +
+            rows +
+          '</tbody>' +
+        '</table>' +
+      '</div>';
+  } catch (e) {
+    els.domainUsageBody.textContent = '加载失败：' + (e && e.message ? e.message : e);
   }
 }
 
@@ -1294,10 +1357,12 @@ window.addEventListener('blur', () => {
     
     await loadUsers();
     await loadTelegramStatus();
+    await loadDomainUsage();
   } catch(_) { 
     try {
       await loadUsers();
       await loadTelegramStatus();
+      await loadDomainUsage();
     } catch(e) {
       void e;
     }

@@ -683,6 +683,21 @@ export async function getUserMailboxes(db, userId, limit = 100) {
   return results || [];
 }
 
+export async function getAdminMailboxes(db, userId, limit = 100) {
+  const sql = `
+    SELECT m.address, m.created_at,
+           COALESCE(um.is_pinned, 0) AS is_pinned,
+           CASE WHEN (m.password_hash IS NULL OR m.password_hash = '') THEN 1 ELSE 0 END AS password_is_default,
+           COALESCE(m.can_login, 0) AS can_login
+    FROM mailboxes m
+    LEFT JOIN user_mailboxes um ON um.mailbox_id = m.id AND um.user_id = ?
+    ORDER BY is_pinned DESC, datetime(m.created_at) DESC
+    LIMIT ?
+  `;
+  const { results } = await db.prepare(sql).bind(userId, Math.min(limit, 200)).all();
+  return results || [];
+}
+
 /**
  * 取消邮箱分配，解除用户与邮箱的绑定关系
  * @param {object} db - 数据库连接对象
@@ -887,6 +902,24 @@ export async function getDomainStats(db) {
     inactive: total - active,
     total
   };
+}
+
+export async function getDomainUsageStats(db) {
+  const { results } = await db.prepare(`
+    SELECT 
+      d.domain,
+      d.is_active,
+      d.created_at,
+      d.last_seen_at,
+      COUNT(DISTINCT m.id) AS mailbox_count,
+      COUNT(ms.id) AS message_count
+    FROM domains d
+    LEFT JOIN mailboxes m ON m.domain = d.domain
+    LEFT JOIN messages ms ON ms.mailbox_id = m.id
+    GROUP BY d.domain, d.is_active, d.created_at, d.last_seen_at
+    ORDER BY mailbox_count DESC, d.domain ASC
+  `).all();
+  return results || [];
 }
 
 export async function isSenderBlocked(db, sender) {

@@ -1,5 +1,5 @@
 import logger from './logger.js';
-import { getUserByTelegramId, createUser, assignMailboxToUser, getUserMailboxes, getLatestMessage, getMailboxIdByAddress, getActiveDomains, getDomainStats } from './database.js';
+import { getUserByTelegramId, createUser, assignMailboxToUser, getUserMailboxes, getAdminMailboxes, getLatestMessage, getMailboxIdByAddress, getActiveDomains, getDomainStats, getDomainUsageStats } from './database.js';
 import { generateRandomId } from './commonUtils.js';
 
 /**
@@ -142,7 +142,22 @@ export async function handleTelegramWebhook(request, env, db) {
         await replyTelegram(env, chatId, `❌ 创建失败：${e.message}`);
       }
     } else if (text.startsWith('/list')) {
-      const mailboxes = await getUserMailboxes(db, user.id);
+      let mailboxes;
+      const role = String(user.role || '');
+      if (role === 'admin') {
+        const name = String(user.username || '');
+        const adminName = env.ADMIN_NAME ? String(env.ADMIN_NAME) : null;
+        const isRoot = name === '__root__';
+        const isNamedAdmin = adminName ? name.toLowerCase() === adminName.toLowerCase() : true;
+        const isStrictAdmin = isRoot || isNamedAdmin;
+        if (isStrictAdmin) {
+          mailboxes = await getAdminMailboxes(db, user.id);
+        } else {
+          mailboxes = await getUserMailboxes(db, user.id);
+        }
+      } else {
+        mailboxes = await getUserMailboxes(db, user.id);
+      }
       if (!mailboxes || mailboxes.length === 0) {
         await replyTelegram(env, chatId, '📭 您还没有创建任何邮箱。使用 /new 创建一个。');
       } else {
@@ -283,6 +298,7 @@ export async function handleTelegramWebhook(request, env, db) {
       }
     } else if (text.startsWith('/domainstats')) {
       const stats = await getDomainStats(db);
+      const usage = await getDomainUsageStats(db);
       const active = stats && typeof stats.active === 'number' ? stats.active : 0;
       const inactive = stats && typeof stats.inactive === 'number' ? stats.inactive : 0;
       const total = stats && typeof stats.total === 'number' ? stats.total : active + inactive;
@@ -290,6 +306,16 @@ export async function handleTelegramWebhook(request, env, db) {
       reply += `活跃域名：<b>${active}</b> 个\n`;
       reply += `已失效域名：<b>${inactive}</b> 个\n`;
       reply += `历史总数：<b>${total}</b> 个`;
+      const list = Array.isArray(usage) ? usage : [];
+      if (list.length) {
+        reply += '\n\n📈 使用详情（前 10 个）：\n';
+        list.slice(0, 10).forEach(function(item, index) {
+          const d = item.domain || '';
+          const mc = typeof item.mailbox_count === 'number' ? item.mailbox_count : 0;
+          const msgc = typeof item.message_count === 'number' ? item.message_count : 0;
+          reply += `${index + 1}. <code>${escapeHtml(d)}</code> - ${mc} 邮箱 / ${msgc} 封邮件\n`;
+        });
+      }
       await replyTelegram(env, chatId, reply, 'HTML');
     } else {
       await replyTelegram(env, chatId, '❓ 未知命令。发送 /start 查看帮助。');
