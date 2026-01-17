@@ -129,10 +129,20 @@
               <span>Telegram 状态</span>
               <span id="telegram-status-badge" class="badge">检查中</span>
             </h2>
-            <button id="telegram-status-refresh" class="btn btn-ghost btn-sm" title="重新检查">
-              <span>🔄</span>
-              <span>刷新</span>
-            </button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button id="telegram-test" class="btn btn-ghost btn-sm" title="发送测试消息">
+                <span>▶</span>
+                <span>测试连接</span>
+              </button>
+              <button id="telegram-connect" class="btn btn-primary btn-sm" title="一键设置 Webhook">
+                <span>↻</span>
+                <span>重新连接</span>
+              </button>
+              <button id="telegram-status-refresh" class="btn btn-ghost btn-sm" title="重新检查">
+                <span>🔄</span>
+                <span>刷新</span>
+              </button>
+            </div>
           </div>
           <div style="margin-top:0;">
             <div id="telegram-status-loading" style="padding:12px;text-align:center;color:#64748b;font-size:13px;">正在检查 Telegram Webhook…</div>

@@ -191,9 +191,43 @@ export async function handleApiRequest(request, db, mailDomains, options = { res
       const result = info && info.result ? info.result : {};
       const me = meInfo && meInfo.result ? meInfo.result : {};
       
-      const currentUrl = result.url || '';
       const origin = new URL(request.url).origin;
       const recommendedUrl = new URL('/telegram/webhook', origin).toString();
+      let autoSetWebhook = false;
+      let autoSetError = '';
+      
+      if (!result.url || result.url !== recommendedUrl) {
+        try {
+          const setUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(recommendedUrl)}`;
+          const setResp = await fetch(setUrl);
+          if (!setResp.ok) {
+            const text = await setResp.text().catch(() => '');
+            logger.error({ logId, action: 'telegram_auto_set_webhook', status: setResp.status, body: text });
+            autoSetError = `Telegram API HTTP ${setResp.status}`;
+          } else {
+            let setData = null;
+            try {
+              setData = await setResp.json();
+            } catch (_) {
+              setData = null;
+            }
+            if (setData && setData.ok) {
+              autoSetWebhook = true;
+              result.url = recommendedUrl;
+              logger.info({ logId, action: 'telegram_auto_set_webhook_success', url: recommendedUrl });
+            } else {
+              const desc = setData && setData.description ? String(setData.description) : '';
+              autoSetError = desc || '自动设置 Webhook 失败';
+              logger.warn({ logId, action: 'telegram_auto_set_webhook_failed', description: desc });
+            }
+          }
+        } catch (e) {
+          autoSetError = String(e && e.message ? e.message : e);
+          logger.error({ logId, action: 'telegram_auto_set_webhook_error', error: e.message, stack: e.stack });
+        }
+      }
+      
+      const currentUrl = result.url || '';
       const lastErrorDate = result.last_error_date || null;
       const ok = !!currentUrl && !lastErrorDate;
       
@@ -214,6 +248,8 @@ export async function handleApiRequest(request, db, mailDomains, options = { res
         maxConnections: result.max_connections || null,
         allowedUpdates: result.allowed_updates || null,
         recommendedUrl,
+        autoSetWebhook,
+        autoSetError,
         botInfo: {
           id: me.id,
           first_name: me.first_name,
@@ -225,6 +261,121 @@ export async function handleApiRequest(request, db, mailDomains, options = { res
     } catch (e) {
       logger.error({ logId, action: 'telegram_status', error: e.message, stack: e.stack });
       return new Response('查询失败', { status: 500 });
+    }
+  }
+
+  if (path === '/api/telegram/set-webhook' && request.method === 'POST') {
+    try {
+      const payload = options?.authPayload || getJwtPayload();
+      if (!payload) {
+        return new Response('未登录', { status: 401 });
+      }
+      const role = payload.role || 'user';
+      if (role !== 'admin' && role !== 'guest') {
+        return new Response('Forbidden', { status: 403 });
+      }
+      const token = env.TELEGRAM_BOT_TOKEN || '';
+      if (!token) {
+        return Response.json({ ok: false, message: 'TELEGRAM_BOT_TOKEN 未配置' }, { status: 400 });
+      }
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (_) {
+        body = {};
+      }
+      const origin = new URL(request.url).origin;
+      const defaultUrl = new URL('/telegram/webhook', origin).toString();
+      const rawUrl = typeof body.url === 'string' ? body.url.trim() : '';
+      const targetUrl = rawUrl || defaultUrl;
+      const apiUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(targetUrl)}`;
+      const resp = await fetch(apiUrl);
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        logger.error({ logId, action: 'telegram_set_webhook', status: resp.status, body: text });
+        return Response.json({ ok: false, message: `Telegram API HTTP ${resp.status}`, raw: text, url: targetUrl }, { status: 502 });
+      }
+      let data;
+      try {
+        data = await resp.json();
+      } catch (_) {
+        data = null;
+      }
+      const success = !!(data && data.ok);
+      if (!success) {
+        const desc = data && data.description ? String(data.description) : '';
+        logger.warn({ logId, action: 'telegram_set_webhook_failed', description: desc });
+        return Response.json({ ok: false, message: desc || '设置 Webhook 失败', url: targetUrl, raw: data }, { status: 502 });
+      }
+      logger.info({ logId, action: 'telegram_set_webhook_success', url: targetUrl });
+      return Response.json({ ok: true, url: targetUrl, result: data });
+    } catch (e) {
+      logger.error({ logId, action: 'telegram_set_webhook_error', error: e.message, stack: e.stack });
+      return new Response('设置 Webhook 失败: ' + (e?.message || e), { status: 500 });
+    }
+  }
+
+  if (path === '/api/telegram/test' && request.method === 'POST') {
+    try {
+      const payload = options?.authPayload || getJwtPayload();
+      if (!payload) {
+        return new Response('未登录', { status: 401 });
+      }
+      const role = payload.role || 'user';
+      if (role !== 'admin' && role !== 'guest') {
+        return new Response('Forbidden', { status: 403 });
+      }
+      const token = env.TELEGRAM_BOT_TOKEN || '';
+      if (!token) {
+        return Response.json({ ok: false, message: 'TELEGRAM_BOT_TOKEN 未配置' }, { status: 400 });
+      }
+      let targetChatId = env.TELEGRAM_CHAT_ID ? String(env.TELEGRAM_CHAT_ID) : '';
+      let body = {};
+      try {
+        body = await request.json();
+      } catch (_) {
+        body = {};
+      }
+      if (body && typeof body.chatId === 'string' && body.chatId.trim()) {
+        targetChatId = body.chatId.trim();
+      }
+      if (!targetChatId) {
+        return Response.json({ ok: false, message: 'TELEGRAM_CHAT_ID 未配置，且未提供 chatId' }, { status: 400 });
+      }
+      const urlSend = `https://api.telegram.org/bot${token}/sendMessage`;
+      const text = '✅ Temp-Mail Telegram 连接测试成功！\n\n如果你能看到这条消息，说明 Webhook 与 Bot 配置正常。';
+      const resp = await fetch(urlSend, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: targetChatId,
+          text,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        })
+      });
+      if (!resp.ok) {
+        const t = await resp.text().catch(() => '');
+        logger.error({ logId, action: 'telegram_test_send_error', status: resp.status, body: t });
+        return Response.json({ ok: false, message: `Telegram API HTTP ${resp.status}`, raw: t }, { status: 502 });
+      }
+      let data;
+      try {
+        data = await resp.json();
+      } catch (_) {
+        data = null;
+      }
+      const success = !!(data && data.ok);
+      if (!success) {
+        const desc = data && data.description ? String(data.description) : '';
+        logger.warn({ logId, action: 'telegram_test_send_failed', description: desc });
+        return Response.json({ ok: false, message: desc || '发送测试消息失败', raw: data }, { status: 502 });
+      }
+      logger.info({ logId, action: 'telegram_test_send_success', chatId: targetChatId });
+      return Response.json({ ok: true, chatId: targetChatId, result: data });
+    } catch (e) {
+      logger.error({ logId, action: 'telegram_test_error', error: e.message, stack: e.stack });
+      return new Response('发送测试消息失败: ' + (e?.message || e), { status: 500 });
     }
   }
 

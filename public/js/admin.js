@@ -47,6 +47,8 @@ const els = {
   telegramStatusRefresh: document.getElementById('telegram-status-refresh'),
   telegramStatusLoading: document.getElementById('telegram-status-loading'),
   telegramStatusContent: document.getElementById('telegram-status-content'),
+  telegramTest: document.getElementById('telegram-test'),
+  telegramConnect: document.getElementById('telegram-connect'),
   tgBotName: document.getElementById('tg-bot-name'),
   tgBotId: document.getElementById('tg-bot-id'),
   tgBotUsername: document.getElementById('tg-bot-username'),
@@ -652,6 +654,68 @@ async function loadTelegramStatus() {
 if (els.telegramStatusRefresh) {
   els.telegramStatusRefresh.onclick = () => {
     loadTelegramStatus();
+  };
+}
+
+if (els.telegramTest) {
+  els.telegramTest.onclick = async () => {
+    try {
+      setButtonLoading(els.telegramTest, '发送测试消息…');
+      const r = await api('/api/telegram/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      if (!r.ok) {
+        const txt = await r.text();
+        showToast('测试失败：' + txt, 'warn');
+        return;
+      }
+      let data = null;
+      try {
+        data = await r.json();
+      } catch (_) {
+        data = null;
+      }
+      if (data && data.ok) {
+        showToast('Telegram 连接测试成功，请在 Telegram 中查看通知', 'success');
+      } else {
+        const msg = data && (data.message || data.error) ? String(data.message || data.error) : '';
+        showToast('测试失败：' + msg, 'warn');
+      }
+    } catch (e) {
+      showToast('测试失败：' + (e && e.message ? e.message : e), 'warn');
+    } finally {
+      restoreButton(els.telegramTest);
+    }
+  };
+}
+
+if (els.telegramConnect) {
+  els.telegramConnect.onclick = async () => {
+    try {
+      setButtonLoading(els.telegramConnect, '正在设置 Webhook…');
+      const r = await api('/api/telegram/set-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      if (!r.ok) {
+        const txt = await r.text();
+        showToast('设置 Webhook 失败：' + txt, 'warn');
+        return;
+      }
+      let data = null;
+      try {
+        data = await r.json();
+      } catch (_) {
+        data = null;
+      }
+      if (data && data.ok) {
+        const url = data.url || '';
+        showToast('Webhook 已更新' + (url ? '：' + url : ''), 'success');
+        loadTelegramStatus();
+      } else {
+        const msg = data && (data.message || data.error) ? String(data.message || data.error) : '';
+        showToast('设置 Webhook 失败：' + msg, 'warn');
+      }
+    } catch (e) {
+      showToast('设置 Webhook 失败：' + (e && e.message ? e.message : e), 'warn');
+    } finally {
+      restoreButton(els.telegramConnect);
+    }
   };
 }
 

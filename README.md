@@ -86,6 +86,9 @@
 ## 🤖 Telegram Bot 集成
 
 - 启用条件：配置 `TELEGRAM_BOT_TOKEN` 和 `TELEGRAM_CHAT_ID` 环境变量。
+- Webhook 自动设置行为：
+  - 管理员或 guest 登录后台并打开管理页面时，系统会根据当前访问域名自动将 Telegram Webhook 设置为 `当前域名/telegram/webhook`（例如：`https://your-worker.workers.dev/telegram/webhook`）。
+  - 如果自动设置失败或你需要指定其他地址，可在后台使用「设置 Webhook / 重新连接」按钮手动修复。
 - 核心命令：
   - `/start`：显示欢迎信息和可用命令列表。
   - `/new [域名]`：创建一个新邮箱（可选指定域名，如 `/new example.com`）。未指定时会从当前活跃域名中随机选择后缀。
