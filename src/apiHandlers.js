@@ -2070,12 +2070,14 @@ export async function handleEmailReceive(requestOrData, db, env) {
     } catch (err) { void err; }
 
     // 直接使用标准列名插入（表结构已在初始化时固定）
+    // Use full 'from' string if available to preserve sender name, fallback to extracted sender email
+    const displayFrom = from || sender;
     await db.prepare(`
       INSERT INTO messages (mailbox_id, sender, to_addrs, subject, verification_code, preview, r2_bucket, r2_object_key)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       mailboxId,
-      sender,
+      displayFrom,
       String(to || ''),
       subject || '(无主题)',
       verificationCode || null,
@@ -2108,7 +2110,7 @@ export async function handleEmailReceive(requestOrData, db, env) {
         const previewText = (text || '').slice(0, 200);
         const baseMsg =
           '<b>📬 新邮件 #email</b>\n\n' +
-          '<b>📤 发件人:</b> ' + escapeHtml(from) + '\n' +
+          '<b>📤 发件人:</b> ' + escapeHtml(displayFrom) + '\n' +
           '<b>📥 收件人:</b> ' + escapeHtml(to) + '\n' +
           '<b>📋 主题:</b> ' + escapeHtml(subject) + '\n' +
           (verificationCode ? '<b>🔑 验证码:</b> <code>' + escapeHtml(verificationCode) + '</code>\n' : '') +

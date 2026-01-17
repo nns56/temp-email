@@ -94,6 +94,25 @@ body {
   z-index: 50;
 }
 
+/* Fix for email detail header contrast */
+.email-detail-header {
+  background: var(--card) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail-meta {
+  color: var(--text) !important;
+}
+
+.detail-sender-info .detail-from {
+  color: var(--text) !important;
+  font-weight: 600;
+}
+
+.detail-sender-info .detail-time {
+  color: var(--text-secondary) !important;
+}
+
 .topbar-inner {
   max-width: 1600px !important; /* Widen for desktop */
 }
