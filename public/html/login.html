@@ -110,13 +110,14 @@
         <div class="logo"></div>
         <h1>登录到 Temp Email</h1>
 
-        <div class="info-banner">
+        <div id="info-banner" class="info-banner" hidden>
           <div class="info-banner-icon" aria-hidden="true">i</div>
           <div class="info-banner-main">
-            <div class="info-banner-title">当前为共享访客体验环境，请勿存放或发送敏感信息。</div>
-            <div class="info-banner-desc">部分功能为演示配置，如需长期稳定使用，推荐 Fork 仓库自建部署。</div>
+            <div id="info-banner-title" class="info-banner-title"></div>
+            <div id="info-banner-desc" class="info-banner-desc"></div>
           </div>
           <a
+            id="info-banner-link"
             class="info-banner-link"
             href="https://github.com/noxenys/temp-mail/blob/main/DEPLOYMENT_GUIDE.md"
             target="_blank"

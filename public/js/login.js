@@ -2,6 +2,10 @@ const username = document.getElementById('username');
 const pwd = document.getElementById('pwd');
 const btn = document.getElementById('login');
 const guestBtn = document.getElementById('guest-login');
+const infoBanner = document.getElementById('info-banner');
+const infoBannerTitle = document.getElementById('info-banner-title');
+const infoBannerDesc = document.getElementById('info-banner-desc');
+const infoBannerLink = document.getElementById('info-banner-link');
 const err = document.getElementById('err');
 
 // 检查必要的DOM元素是否存在
@@ -136,3 +140,47 @@ if (guestBtn && username && pwd) {
     doLogin();
   });
 }
+
+async function initLoginBanner() {
+  if (!infoBanner || !infoBannerTitle || !infoBannerDesc || !infoBannerLink) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/config', {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!response.ok) {
+      return;
+    }
+
+    const config = await response.json();
+    const modeFromConfig = String(config.siteMode || '').trim().toLowerCase();
+    let siteMode = modeFromConfig || (config.showDemoBanner ? 'demo' : 'selfhost');
+
+    if (siteMode !== 'demo' && siteMode !== 'selfhost') {
+      siteMode = 'selfhost';
+    }
+
+    if (siteMode === 'demo' || config.showDemoBanner) {
+      infoBannerTitle.textContent = '当前为官方体验站共享环境，请勿存放或发送敏感信息。';
+      infoBannerDesc.textContent = '该环境用于体验与演示，数据可能会定期清理。如需长期稳定使用，推荐 Fork 仓库自建部署。';
+      infoBannerLink.style.display = '';
+      infoBannerLink.textContent = '查看部署文档';
+      infoBanner.hidden = false;
+      return;
+    }
+
+    if (config.showGuestBanner) {
+      infoBannerTitle.textContent = '当前为访客模式（权限受限）。';
+      infoBannerDesc.textContent = '您可以使用访客账号体验主要功能，但部分管理与配置能力已关闭。如需完整权限，请使用管理员账号或自建部署。';
+      infoBannerLink.style.display = 'none';
+      infoBanner.hidden = false;
+      return;
+    }
+  } catch (e) {
+    void e;
+  }
+}
+
+initLoginBanner();

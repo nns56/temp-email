@@ -15,6 +15,8 @@ interface Env {
   JWT_TOKEN?: string;
   MAIL_DOMAIN: string;
   FORWARD_RULES?: string;
+  SITE_MODE?: string;
+  SHOW_DEMO_BANNER?: string;
   RESEND_API_KEY?: string;
   RESEND_TOKEN?: string;
   RESEND?: string;

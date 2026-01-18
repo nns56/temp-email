@@ -35,6 +35,8 @@
 # 📸 项目展示
 ### 体验地址： `https://tempmail.noxen.de5.net`
 
+> 说明：该地址为官方 Demo / 体验环境，示例配置为 `SITE_MODE=demo`，并已启用 `GUEST_PASSWORD` 访客账号。自建部署默认视为 `selfhost` 模式，不会显示“共享环境/演示站”提示。
+
 ### 体验账号： 
 - 访客用户名：guest
 - 访客密码：123456
@@ -296,6 +298,8 @@ npm run deploy
 | `RESEND_API_KEY` | 可选 | Resend 发件密钥，开启“发件箱”功能 | Cloudflare Worker Secrets / GitHub Secrets |
 | `TELEGRAM_BOT_TOKEN` | 可选 | Telegram Bot 的访问令牌 | Cloudflare Worker Secrets |
 | `TELEGRAM_CHAT_ID` | 可选 | 默认接收通知的 Telegram 会话 ID | Cloudflare Worker Variables |
+| `SITE_MODE` | 可选 | 控制登录页提示条模式（`demo` / `selfhost`） | Cloudflare Worker Variables / Secrets |
+| `SHOW_DEMO_BANNER` | 可选 | 兼容旧方案，仅为 `true` 时强制展示 Demo 提示 | Cloudflare Worker Variables / Secrets |
 
 > Cloudflare API Token 权限建议：
 > - 在 Cloudflare Dashboard → **My Profile → API Tokens** 中，使用官方模板 **“Edit Cloudflare Workers”** 创建一个新的 Token；
@@ -322,6 +326,13 @@ npm run deploy
 - `GUEST_PASSWORD`：访客登录密码（可选，配置后启用访客模式）
   - 示例：`GUEST_PASSWORD="guest_access_password"`
   - 用途：为访客账号设置统一密码，用于只读或受限访问
+- `SITE_MODE`：站点模式控制（可选）
+  - 可选值：`demo` / `selfhost`，默认视为 `selfhost`
+  - 当为 `demo` 时：登录页展示“官方体验站 / 共享环境”提示，并附带部署文档链接
+  - 当为 `selfhost` 时：不展示 Demo 提示；若配置了 `GUEST_PASSWORD`，仅展示“访客模式（权限受限）”提示
+- `SHOW_DEMO_BANNER`：旧版兼容开关（可选）
+  - 示例：`SHOW_DEMO_BANNER="true"`
+  - 当 `SITE_MODE` 未显式设置为 `demo/selfhost` 时，且该值为 `true`，视为 Demo 环境并展示演示提示。建议在新部署中优先使用 `SITE_MODE`。
 - `ADMIN_NAME`：严格管理员用户名（默认 `admin`）
   - 示例：`ADMIN_NAME="myadmin"`
   - 用途：管理员登录使用的用户名，对应后台的严格管理员

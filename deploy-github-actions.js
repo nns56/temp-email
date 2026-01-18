@@ -123,6 +123,8 @@ try {
     { name: 'RESEND_API_KEY', value: process.env.RESEND_API_KEY },
     { name: 'RESEND_TOKEN', value: process.env.RESEND_TOKEN },
     { name: 'RESEND', value: process.env.RESEND },
+    { name: 'SITE_MODE', value: process.env.SITE_MODE },
+    { name: 'SHOW_DEMO_BANNER', value: process.env.SHOW_DEMO_BANNER },
     { name: 'FORWARD_RULES', value: process.env.FORWARD_RULES },
     { name: 'CACHE_TTL', value: process.env.CACHE_TTL },
     { name: 'TELEGRAM_BOT_TOKEN', value: process.env.TELEGRAM_BOT_TOKEN },

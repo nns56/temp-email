@@ -189,7 +189,7 @@ export async function authMiddleware(context) {
   const url = new URL(request.url);
   
   // 跳过不需要认证的路由
-  const publicPaths = ['/api/login', '/api/logout', '/telegram/webhook'];
+  const publicPaths = ['/api/login', '/api/logout', '/api/config', '/telegram/webhook'];
   if (publicPaths.includes(url.pathname)) {
     return null;
   }
@@ -499,6 +499,28 @@ export function createRouter() {
       role: authPayload.role || 'admin', 
       username: authPayload.username || '', 
       strictAdmin 
+    });
+  });
+
+  router.get('/api/config', async(context) => {
+    const { env } = context;
+    const rawMode = String(env.SITE_MODE || '').trim().toLowerCase();
+    let siteMode = 'selfhost';
+
+    if (rawMode === 'demo' || rawMode === 'selfhost') {
+      siteMode = rawMode;
+    } else if (env.SHOW_DEMO_BANNER === 'true') {
+      siteMode = 'demo';
+    }
+
+    const guestLoginEnabled = !!env.GUEST_PASSWORD;
+    const showDemoBanner = siteMode === 'demo';
+    const showGuestBanner = !showDemoBanner && guestLoginEnabled;
+
+    return Response.json({
+      siteMode,
+      showDemoBanner,
+      showGuestBanner
     });
   });
 
